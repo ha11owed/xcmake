@@ -1,0 +1,14 @@
+{
+    "projects": [
+        {
+            "path": "*",
+            "sdkPath": "/home/alin/sdks5/curr/",
+            "overrideFiles": false,
+            "cmdEnvironment": [],
+            "cmdReplacement": {
+                "xcmake": "${sdkPath}usr/bin/cmake",
+                "xecho": "/usr/bin/echo"
+            }
+        }
+    ]
+}

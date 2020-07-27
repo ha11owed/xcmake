@@ -27,10 +27,18 @@ using XmlElemParentPair = std::pair<XmlElemPtr, XmlElemPtr>;
 struct CMaker::Impl {
     using WriteFileCb = std::function<void(const std::string &filePath, const std::string &content)>;
 
-    struct CMakeInput {
+    struct CmdLineArgs {
+        std::vector<std::string> args;
+        std::vector<std::string> env;
+        std::string home;
+        std::string pwd;
+
+        bool isValid() const { return args.size() > 0; }
+    };
+
+    struct Config {
         std::string configFilePath;
 
-        std::string home;
         std::string projectDir;
         std::string buildDir;
         std::string sdkDir;
@@ -42,10 +50,13 @@ struct CMaker::Impl {
         bool overrideFiles = true;
         bool outputToStdout = true;
         std::set<std::string> cmdEnvironment;
-        std::map<std::string, std::string> cmdReplacement;
+        std::map<std::string, std::vector<std::string>> cmdReplacement;
+
+        bool patchCbp = false;
+        bool hasConfig = false;
 
         void log() const {
-            LOG_F(INFO, "CMakeInput {");
+            LOG_F(INFO, "Config {");
             LOG_F(INFO, "  configFilePath: %s", configFilePath.c_str());
             LOG_F(INFO, "  projectDir: %s", projectDir.c_str());
             LOG_F(INFO, "  buildDir:   %s", buildDir.c_str());
@@ -54,8 +65,16 @@ struct CMaker::Impl {
             LOG_IF_F(INFO, !oldSdkPrefix.empty(), "  oldSdkPrefix: %s", oldSdkPrefix.c_str());
             LOG_IF_F(INFO, !oldVirtualFolderPrefix.empty(), "  oldVirtualFolderPrefix: %s",
                      oldVirtualFolderPrefix.c_str());
+            LOG_F(INFO, "  patchCbp: %d", patchCbp);
             LOG_F(INFO, "}");
         }
+    };
+
+    struct ExecutionPlan {
+        CmdLineArgs cmdLineArgs;
+        bool patchCbp = false;
+
+        std::vector<std::string> logs;
     };
 
     enum class PatchResult { Changed, Unchanged, Error };
@@ -72,7 +91,10 @@ struct CMaker::Impl {
         return "Unknown PatchResult";
     }
 
-    CMakeInput in;
+    CmdLineArgs cmdLineArgs;
+    Config in;
+    ExecutionPlan executionPlan;
+
     WriteFileCb writeFileCb;
 
     void split(const std::string &input, const std::string &separator, std::vector<std::string> &parts) {
@@ -288,7 +310,7 @@ struct CMaker::Impl {
         std::set<std::string> configFilePathSet;
 
         std::vector<std::pair<std::string, int>> searches;
-        searches.emplace_back(std::make_pair(in.home, 1));
+        searches.emplace_back(std::make_pair(cmdLineArgs.home, 1));
         searches.emplace_back(std::make_pair(in.projectDir, 3));
         searches.emplace_back(std::make_pair(in.buildDir, 3));
 
@@ -327,57 +349,6 @@ struct CMaker::Impl {
         return dir;
     }
 
-    int exec(const std::vector<std::string> &args, const std::vector<std::string> &env, const std::string &home,
-             const std::string &pwd) {
-        // Log the input parameters
-        LOG_F(INFO, "exec");
-        for (size_t i = 0; i < args.size(); i++) {
-            LOG_F(INFO, "exec arg[%lu]: %s", i, args[i].c_str());
-        }
-        for (size_t i = 0; i < env.size(); i++) {
-            LOG_F(INFO, "exec env[%lu]: %s", i, env[i].c_str());
-        }
-        LOG_F(INFO, "exec pwd: %s", pwd.c_str());
-
-        in = CMakeInput();
-        bool patchCbp = canPatchCBP(args);
-        LOG_F(INFO, "exec patchCbp: %d", patchCbp);
-        bool hasConfig = readConfiguration(home, pwd);
-        LOG_F(INFO, "exec hasConfig: %d", hasConfig);
-
-        int retCode = -1;
-        if (args.size() == 0) {
-            LOG_F(ERROR, "exec empty args");
-        } else {
-            auto replIt = in.cmdReplacement.find(args[0]);
-            if (replIt == in.cmdReplacement.end()) {
-                replIt = in.cmdReplacement.find(ga::getFilename(args[0]));
-            }
-            if (replIt != in.cmdReplacement.end()) {
-                LOG_F(INFO, "exec cmdReplacement: %s", replIt->second.c_str());
-                std::vector<std::string> argsR(args);
-                argsR[0] = replIt->second;
-
-                std::vector<std::string> envR(env);
-                for (const std::string &v : in.cmdEnvironment) {
-                    LOG_F(INFO, "exec env: %s", v.c_str());
-                    envR.push_back(v);
-                }
-
-                retCode = execOriginalCommand(argsR, envR);
-            } else {
-                LOG_F(ERROR, "exec cmdReplacement for: %s does not exist", args[0].c_str());
-            }
-        }
-        if (patchCbp) {
-            patchCBPs();
-        }
-
-        // Log the return code and return
-        LOG_F(INFO, "exec retCode: %d", retCode);
-        return retCode;
-    }
-
     void writeCbp(WriteFileCb cb) { writeFileCb = cb; }
 
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
@@ -404,11 +375,10 @@ struct CMaker::Impl {
 
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
     /// @return true if the CBPs should be patched and the parameters have been gathered.
-    bool readConfiguration(const std::string &home, const std::string &pwd) {
+    bool readConfiguration() {
         LOG_F(INFO, "preparePatchCBPs");
 
-        in.home = home;
-        in.buildDir = pwd;
+        in.buildDir = cmdLineArgs.pwd;
 
         ga::DirectorySearch ds;
         ds.maxRecursionLevel = 0;
@@ -486,9 +456,11 @@ struct CMaker::Impl {
             in.cmdReplacement.clear();
             std::string sdkDirWithS(in.sdkDir + "/");
             for (const auto &kv : jProject["cmdReplacement"].items()) {
-                std::string value = kv.value();
-                replaceAll("${sdkPath}", sdkDirWithS, value);
-                ga::getSimplePath(value, value);
+                std::vector<std::string> value = kv.value();
+                for (std::string &val : value) {
+                    replaceAll("${sdkPath}", sdkDirWithS, val);
+                    ga::getSimplePath(val, val);
+                }
 
                 in.cmdReplacement[kv.key()] = value;
                 std::string smallKey = ga::getFilename(kv.key());
@@ -666,32 +638,31 @@ struct CMaker::Impl {
         }
     }
 
-    int execOriginalCommand(const std::vector<std::string> &cmd, const std::vector<std::string> &env) {
+    int replace(const std::vector<std::string> &cmd, const std::vector<std::string> &env) {
         int result = -1;
         if (cmd.empty()) {
-            LOG_F(ERROR, "cmd is empty");
+            executionPlan.logs.push_back("cmd is empty");
             return result;
         }
 
-        LOG_F(INFO, "%s", cmd[0].c_str());
-        //loguru::shutdown();
+        executionPlan.logs.push_back(cmd[0]);
 
         pid_t oldppid = getppid();
         pid_t pid = fork();
         switch (pid) {
         case -1:
-            LOG_F(ERROR, "cannot fork");
+            executionPlan.logs.push_back("cannot fork");
             break;
         case 0:
             // Child process
             {
                 pid_t ppid = getppid();
                 if (ppid == oldppid) {
-                    LOG_F(INFO, "getppid %d matches the parent before the fork", ppid);
+                    executionPlan.logs.push_back("getppid matches the parent before the fork" + std::to_string(ppid));
                 } else {
                     int status;
                     if (ppid != waitpid(ppid, &status, 0)) {
-                        LOG_F(ERROR, "waitpid %d", ppid);
+                        executionPlan.logs.push_back("waitpid " + std::to_string(ppid));
                         return result;
                     }
                 }
@@ -704,12 +675,132 @@ struct CMaker::Impl {
                 std::vector<const char *> cmdRaw = vecToRaw(cmd);
                 std::vector<const char *> envRaw = vecToRaw(env);
 
-                result = execvpe(cmdRaw[0], (char *const *)(cmdRaw.data()), (char *const *)(envRaw.data()));
+                result = execvpe(cmdRaw[0], const_cast<char *const *>(cmdRaw.data()),
+                                 const_cast<char *const *>(envRaw.data()));
             }
             break;
         }
 
         return result;
+    }
+
+    bool isInitialized() const { return in.hasConfig && !cmdLineArgs.args.empty(); }
+
+    int step1init(const std::vector<std::string> &args, const std::vector<std::string> &env, const std::string &home,
+                  const std::string &pwd) {
+
+        // Log the input parameters
+        LOG_F(INFO, "exec");
+        for (size_t i = 0; i < args.size(); i++) {
+            LOG_F(INFO, "exec arg[%lu]: %s", i, args[i].c_str());
+        }
+        for (size_t i = 0; i < env.size(); i++) {
+            LOG_F(INFO, "exec env[%lu]: %s", i, env[i].c_str());
+        }
+        LOG_F(INFO, "exec pwd: %s", pwd.c_str());
+
+        cmdLineArgs = CmdLineArgs();
+        in = Config();
+        executionPlan = ExecutionPlan();
+
+        cmdLineArgs.args = args;
+        cmdLineArgs.env = env;
+        cmdLineArgs.home = home;
+        cmdLineArgs.pwd = pwd;
+
+        in.patchCbp = canPatchCBP(args);
+        LOG_F(INFO, "exec patchCbp: %d", in.patchCbp);
+        in.hasConfig = readConfiguration();
+        LOG_F(INFO, "exec hasConfig: %d", in.hasConfig);
+
+        int retCode = -1;
+        for (;;) {
+            if (args.size() == 0) {
+                LOG_F(ERROR, "exec empty args");
+                break;
+            }
+            if (!in.hasConfig) {
+                break;
+            }
+
+            auto replIt = in.cmdReplacement.find(cmdLineArgs.args[0]);
+            if (replIt == in.cmdReplacement.end()) {
+                replIt = in.cmdReplacement.find(ga::getFilename(cmdLineArgs.args[0]));
+            }
+            if (replIt == in.cmdReplacement.end()) {
+                LOG_F(ERROR, "exec cmdReplacement for: %s does not exist", cmdLineArgs.args[0].c_str());
+                break;
+            }
+
+            const std::vector<std::string> &replCmd = replIt->second;
+
+            std::vector<std::string> &args = executionPlan.cmdLineArgs.args;
+            std::vector<std::string> &env = executionPlan.cmdLineArgs.env;
+
+            args = cmdLineArgs.args;
+            for (size_t i = 0; i < replCmd.size(); i++) {
+                LOG_F(INFO, "exec cmdReplacement[%zu]: %s", i, replCmd[i].c_str());
+                args[i] = replCmd[i];
+            }
+
+            env = cmdLineArgs.env;
+            for (const std::string &v : in.cmdEnvironment) {
+                LOG_F(INFO, "exec env: %s", v.c_str());
+                env.push_back(v);
+            }
+
+            executionPlan.patchCbp = in.patchCbp;
+
+            retCode = 0;
+            break;
+        }
+
+        return retCode;
+    }
+
+    int step2run() {
+        int retCode = -1;
+        if (!isInitialized()) {
+            return retCode;
+        }
+
+        auto replIt = in.cmdReplacement.find(cmdLineArgs.args[0]);
+        if (replIt == in.cmdReplacement.end()) {
+            replIt = in.cmdReplacement.find(ga::getFilename(cmdLineArgs.args[0]));
+        }
+        if (replIt == in.cmdReplacement.end()) {
+            LOG_F(ERROR, "exec cmdReplacement for: %s does not exist", cmdLineArgs.args[0].c_str());
+            return retCode;
+        }
+
+        const std::vector<std::string> &replCmd = replIt->second;
+
+        std::vector<std::string> argsR(cmdLineArgs.args);
+        for (size_t i = 0; i < replCmd.size(); i++) {
+            LOG_F(INFO, "exec cmdReplacement[%zu]: %s", i, replCmd[i].c_str());
+            argsR[i] = replCmd[i];
+        }
+
+        std::vector<std::string> envR(cmdLineArgs.env);
+        for (const std::string &v : in.cmdEnvironment) {
+            LOG_F(INFO, "exec env: %s", v.c_str());
+            envR.push_back(v);
+        }
+
+        retCode = replace(argsR, envR);
+        return retCode;
+    }
+
+    int step3patch() {
+        if (!isInitialized()) {
+            return -1;
+        }
+
+        if (in.patchCbp) {
+            patchCBPs();
+        }
+
+        return 0;
     }
 };
 
@@ -726,11 +817,27 @@ std::string CMaker::getModuleDir() const {
     return r;
 }
 
-int CMaker::exec(const std::vector<std::string> &args, const std::vector<std::string> &env, const std::string &home,
+int CMaker::init(const std::vector<std::string> &args, const std::vector<std::string> &env, const std::string &home,
                  const std::string &pwd) {
     int r = -1;
     if (_impl) {
-        r = _impl->exec(args, env, home, pwd);
+        r = _impl->step1init(args, env, home, pwd);
+    }
+    return r;
+}
+
+int CMaker::run() {
+    int r = -1;
+    if (_impl) {
+        r = _impl->step2run();
+    }
+    return r;
+}
+
+int CMaker::patch() {
+    int r = -1;
+    if (_impl) {
+        r = _impl->step3patch();
     }
     return r;
 }
@@ -805,7 +912,14 @@ TEST_F(CMakerTest, PatchCBPs) {
 }
 
 TEST_F(CMakerTest, ECHO) {
-    int r = cmaker.exec({"xecho", "test"}, {}, cmaker.getModuleDir(), cmaker.getModuleDir());
+    int r = cmaker.init({"xecho", "test"}, {}, cmaker.getModuleDir(), cmaker.getModuleDir());
     ASSERT_EQ(0, r);
+
+    const auto &env = impl->in.cmdEnvironment;
+    ASSERT_EQ(2, env.size());
+    ASSERT_TRUE(env.find("E1=1") != env.end());
+    ASSERT_TRUE(env.find("E2=2") != env.end());
+
+    const auto &repl = impl->in.cmdReplacement;
 }
 #endif

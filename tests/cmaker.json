@@ -1,13 +1,16 @@
 {
+    "cmdEnvironment": ["E1=1"],
+    "cmdReplacement": {
+        "xcmake": ["${sdkPath}usr/bin/cmake"]
+    },
     "projects": [
         {
             "path": "*",
             "sdkPath": "/home/alin/sdks5/curr/",
             "overrideFiles": false,
-            "cmdEnvironment": [],
+            "cmdEnvironment": ["E2=2"],
             "cmdReplacement": {
-                "xcmake": "${sdkPath}usr/bin/cmake",
-                "xecho": "/usr/bin/echo"
+                "xecho": ["/usr/bin/echo"]
             }
         }
     ]

@@ -37,15 +37,15 @@ inline void initlog(int argc, char **argv) {
 
     strftime(buffer, sizeof(buffer), "%Y-%m-%d_%H%M%S", timeinfo);
 
-    std::string logFilePath("/tmp/cmaker/cmaker_");
-    logFilePath += buffer;
+    std::string logFilePath("/tmp/xmake/");
     if (argc >= 1) {
         std::string fileName = ga::getFilename(argv[0]);
         if (!fileName.empty()) {
-            logFilePath += "_";
             logFilePath += fileName;
+            logFilePath += "_";
         }
     }
+    logFilePath += buffer;
     logFilePath += "_";
     logFilePath += std::to_string(getpid());
     logFilePath += ".log";
@@ -86,9 +86,35 @@ int main(int argc, char **argv) {
     }
 
     CMaker cmaker;
+
+    if (argc == 1) {
+        printf("0  =   %s\n", argv[0]);
+        printf("pwd=   %s\n", pwd.c_str());
+        printf("home=  %s\n", home.c_str());
+        printf("module=%s\n", cmaker.getModuleDir().c_str());
+    }
     // cmd = {"cmaker", "/home/alin/projects/cpp-httplib/", "'-GCodeBlocks - Unix Makefiles'"};
     // pwd = "/home/alin/projects/build-cpp-httplib-Desktop-Debug/";
-    int result = cmaker.exec(cmd, env, home, pwd);
+    int result;
+
+    for (;;) {
+        result = cmaker.init(cmd, env, home, pwd);
+        if (!result) {
+            break;
+        }
+
+        result = cmaker.run();
+        if (!result) {
+            break;
+        }
+
+        loguru::shutdown();
+
+        break;
+    }
+
+    initlog(argc, argv);
+
     return result;
 }
 

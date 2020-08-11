@@ -38,6 +38,7 @@
 
 #define LOG_ExecutionPlan(header, executionPlan)                                                                       \
     do {                                                                                                               \
+        LOG_STR(header " exePath: ", (executionPlan).exePath);                                                         \
         LOG_CmdLineArgs(header " cmdLineArgs", (executionPlan).cmdLineArgs);                                           \
         LOG_STR_ARRAY(header " cbpFilePaths", (executionPlan).cbpFilePaths);                                           \
         LOG_STR_ARRAY(header " logs", (executionPlan).logs);                                                           \
@@ -550,7 +551,7 @@ struct CMaker::Impl {
         }
     }
 
-    bool hasExecutionPlan() const { return !executionPlan.cmdLineArgs.args.empty(); }
+    bool hasExecutionPlan() const { return !executionPlan.exePath.empty() && !executionPlan.cmdLineArgs.args.empty(); }
 
     int step1init(const CmdLineArgs &cmdLineArgs) {
         // Log the input parameters
@@ -586,11 +587,12 @@ struct CMaker::Impl {
 
             const std::vector<std::string> &replCmd = replIt->second;
 
+            executionPlan.exePath = replCmd[0];
             executionPlan.cmdLineArgs = cmdLineArgs;
             std::vector<std::string> &args = executionPlan.cmdLineArgs.args;
             args = cmdLineArgs.args;
-            for (size_t i = 0; i < replCmd.size() && i < args.size(); i++) {
-                args[i] = replCmd[i];
+            for (size_t i = 0; (i + 1) < replCmd.size() && i < args.size(); i++) {
+                args[i] = replCmd[i + 1];
             }
 
             std::vector<std::string> &env = executionPlan.cmdLineArgs.env;
@@ -626,7 +628,7 @@ struct CMaker::Impl {
             return retCode;
         }
 
-        executionPlan.logs.push_back(executionPlan.cmdLineArgs.args[0]);
+        executionPlan.logs.push_back("execute: " + executionPlan.exePath);
 
         pid_t oldppid = getppid();
         pid_t pid = fork();
@@ -656,7 +658,7 @@ struct CMaker::Impl {
                 std::vector<const char *> cmdRaw = vecToRaw(executionPlan.cmdLineArgs.args);
                 std::vector<const char *> envRaw = vecToRaw(executionPlan.cmdLineArgs.env);
 
-                retCode = execvpe(cmdRaw[0], const_cast<char *const *>(cmdRaw.data()),
+                retCode = execvpe(executionPlan.exePath.c_str(), const_cast<char *const *>(cmdRaw.data()),
                                   const_cast<char *const *>(envRaw.data()));
             }
             break;
@@ -839,6 +841,8 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         ASSERT_EQ(1, env.size());
         ASSERT_TRUE(std::find(env.begin(), env.end(), "E1=1") != env.end());
 
+        ASSERT_EQ(sdkDir + "/usr/bin/cmaker", ep->exePath);
+
         const auto &args = ep->cmdLineArgs.args;
         ASSERT_EQ(cmdLineArgs.args.size(), args.size());
         ASSERT_EQ(sdkDir + "/usr/bin/cmake", args[0]);
@@ -865,6 +869,8 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         const auto &env = ep->cmdLineArgs.env;
         ASSERT_EQ(1, env.size());
         ASSERT_TRUE(std::find(env.begin(), env.end(), "E1=1") != env.end());
+
+        ASSERT_EQ(sdkDir + "/usr/bin/basher", ep->exePath);
 
         const auto &args = ep->cmdLineArgs.args;
         ASSERT_EQ(cmdLineArgs.args.size(), args.size());
@@ -894,6 +900,8 @@ TEST_F(CMakerTest, ECHO) {
     ASSERT_EQ(2, env.size());
     ASSERT_TRUE(std::find(env.begin(), env.end(), "E1=1") != env.end());
     ASSERT_TRUE(std::find(env.begin(), env.end(), "E2=2") != env.end());
+
+    ASSERT_EQ("/usr/bin/echo", ep->exePath);
 
     const auto &args = ep->cmdLineArgs.args;
     ASSERT_EQ(2, args.size());

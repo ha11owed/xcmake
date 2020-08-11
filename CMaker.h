@@ -16,6 +16,7 @@ struct CmdLineArgs {
 };
 
 struct ExecutionPlan {
+    std::string exePath;
     CmdLineArgs cmdLineArgs;
 
     std::string configFilePath;

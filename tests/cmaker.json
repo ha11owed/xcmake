@@ -1,8 +1,8 @@
 {
     "cmdEnvironment": ["E1=1"],
     "cmdReplacement": {
-        "xcmake": [ "${sdkPath}usr/bin/cmake" ],
-        "xbash" : [ "${sdkPath}usr/bin/bash"  ]
+        "xcmake": [ "${sdkPath}usr/bin/cmaker", "${sdkPath}usr/bin/cmake" ],
+        "xbash" : [ "${sdkPath}usr/bin/basher", "${sdkPath}usr/bin/bash"  ]
     },
     "projects": [
         {
@@ -19,7 +19,7 @@
             "overrideFiles": false,
             "cmdEnvironment": [ "E2=2" ],
             "cmdReplacement": {
-                "xecho": [ "/usr/bin/echo" ]
+                "xecho": [ "/usr/bin/echo", "/usr/bin/echo" ]
             }
         }
     ]

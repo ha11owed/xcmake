@@ -1,16 +1,25 @@
 {
     "cmdEnvironment": ["E1=1"],
     "cmdReplacement": {
-        "xcmake": ["${sdkPath}usr/bin/cmake"]
+        "xcmake": [ "${sdkPath}usr/bin/cmake" ],
+        "xbash" : [ "${sdkPath}usr/bin/bash"  ]
     },
     "projects": [
+        {
+            "path": "/tmp/xcmake/test/proj42",
+            "sdkPath": "/home/alin/sdks42"
+        },
+        {
+            "path": "/tmp/xcmake/test/proj43",
+            "sdkPath": "/home/alin/sdks43"
+        },
         {
             "path": "*",
             "sdkPath": "/home/alin/sdks5/curr/",
             "overrideFiles": false,
-            "cmdEnvironment": ["E2=2"],
+            "cmdEnvironment": [ "E2=2" ],
             "cmdReplacement": {
-                "xecho": ["/usr/bin/echo"]
+                "xecho": [ "/usr/bin/echo" ]
             }
         }
     ]

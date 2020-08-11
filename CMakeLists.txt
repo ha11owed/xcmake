@@ -3,12 +3,15 @@ cmake_minimum_required(VERSION 3.1)
 project(XCMake)
 
 add_executable(${PROJECT_NAME} "main.cpp"
+    "Config.h" "Config.cpp"
     "CMaker.h" "CMaker.cpp"
     # Lib dependencies
     "file_system.h" "file_system.cpp"
     "whereami.h" "whereami.c"
     "tinyxml2.h" "tinyxml2.cpp"
     "loguru.hpp" "loguru.cpp"
+    # Tests
+    "ConfigTests.cpp"
     # GTest
     "gtest/gtest.h"
     "gtest/gtest-all.cc")
@@ -24,6 +27,6 @@ if(CMAKE_DL_LIBS)
     target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS})
 endif()
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE CMAKER_WITH_UNIT_TESTS)
+#target_compile_definitions(${PROJECT_NAME} PRIVATE CMAKER_WITH_UNIT_TESTS)
 
 file(COPY "tests/testproject_input.cbp" "tests/testproject_output.cbp.xml" "tests/cmaker.json" DESTINATION ${CMAKE_BINARY_DIR})

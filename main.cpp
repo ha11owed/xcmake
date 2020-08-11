@@ -53,67 +53,69 @@ inline void initlog(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    initlog(argc, argv);
-
-    std::string pwd;
-    std::string home;
-
-    std::vector<std::string> cmd(argc);
-    for (int i = 0; i < argc; i++) {
-        cmd[i] = argv[i];
-    }
-
-    std::vector<std::string> env;
-    for (int i = 0; environ[i]; i++) {
-        env.push_back(environ[i]);
-    }
-
-    // Home dir
-    {
-        passwd *mypasswd = getpwuid(getuid());
-        if (mypasswd && mypasswd->pw_dir) {
-            home = mypasswd->pw_dir;
-        }
-    }
-
-    // PWD
-    {
-        char buff[FILENAME_MAX];
-        const char *p = getcwd(buff, FILENAME_MAX);
-        if (p) {
-            pwd = p;
-        }
-    }
-
-    CMaker cmaker;
-
-    if (argc == 1) {
-        printf("0  =   %s\n", argv[0]);
-        printf("pwd=   %s\n", pwd.c_str());
-        printf("home=  %s\n", home.c_str());
-        printf("module=%s\n", cmaker.getModuleDir().c_str());
-    }
-    // cmd = {"cmaker", "/home/alin/projects/cpp-httplib/", "'-GCodeBlocks - Unix Makefiles'"};
-    // pwd = "/home/alin/projects/build-cpp-httplib-Desktop-Debug/";
-    int result;
-
+    int result = -1;
     for (;;) {
-        result = cmaker.init(cmd, env, home, pwd);
+        initlog(argc, argv);
+
+        // CMD
+        CmdLineArgs cmdLineArgs;
+        cmdLineArgs.args.resize(argc);
+        for (int i = 0; i < argc; i++) {
+            cmdLineArgs.args[i] = argv[i];
+        }
+
+        // ENV
+        for (int i = 0; environ[i]; i++) {
+            cmdLineArgs.env.push_back(environ[i]);
+        }
+
+        // Home dir
+        {
+            passwd *mypasswd = getpwuid(getuid());
+            if (mypasswd && mypasswd->pw_dir) {
+                cmdLineArgs.home = mypasswd->pw_dir;
+            }
+        }
+
+        // PWD
+        {
+            char buff[FILENAME_MAX];
+            const char *p = getcwd(buff, FILENAME_MAX);
+            if (p) {
+                cmdLineArgs.pwd = p;
+            }
+        }
+
+        // Initialize
+        CMaker cmaker;
+        if (argc == 0) {
+            printf("0  =   %s\n", argv[0]);
+            printf("pwd=   %s\n", cmdLineArgs.pwd.c_str());
+            printf("home=  %s\n", cmdLineArgs.home.c_str());
+            printf("module=%s\n", cmaker.getModuleDir().c_str());
+            break;
+        }
+        // cmd = {"cmaker", "/home/alin/projects/cpp-httplib/", "'-GCodeBlocks - Unix Makefiles'"};
+        // pwd = "/home/alin/projects/build-cpp-httplib-Desktop-Debug/";
+
+        result = cmaker.init(cmdLineArgs);
         if (!result) {
             break;
         }
 
-        result = cmaker.run();
-        if (!result) {
-            break;
-        }
-
+        // Run the original command. Stop logging to avoid issues with fork.
         loguru::shutdown();
+        result = cmaker.run();
 
+        // If we are here we are in the child. Continue logging.
+        initlog(argc, argv);
+        if (!result) {
+            break;
+        }
+
+        result = cmaker.patch();
         break;
     }
-
-    initlog(argc, argv);
 
     return result;
 }

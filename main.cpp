@@ -95,32 +95,23 @@ int main(int argc, char **argv) {
 
         // Initialize
         CMaker cmaker;
-        if (argc == 0) {
-            printf("0  =   %s\n", argv[0]);
-            printf("pwd=   %s\n", cmdLineArgs.pwd.c_str());
-            printf("home=  %s\n", cmdLineArgs.home.c_str());
-            printf("module=%s\n", cmaker.getModuleDir().c_str());
-            break;
-        }
-        // cmd = {"cmaker", "/home/alin/projects/cpp-httplib/", "'-GCodeBlocks - Unix Makefiles'"};
-        // pwd = "/home/alin/projects/build-cpp-httplib-Desktop-Debug/";
-
         result = cmaker.init(cmdLineArgs);
         printOutput(cmaker);
-        if (!result) {
+        if (result != 0) {
+            printf("Initialization failed with %d\n", result);
             break;
         }
 
         // Run the original command. Stop logging to avoid issues with fork.
         loguru::shutdown();
         result = cmaker.run();
-
-        // If we are here we are in the child. Continue logging.
-        initlog(argc, argv);
-        if (!result) {
+        if (result != 0) {
+            printf("Run failed with %d\n", result);
             break;
         }
 
+        // If we are here we are in the child. Continue logging.
+        initlog(argc, argv);
         result = cmaker.patch();
         printOutput(cmaker);
         break;

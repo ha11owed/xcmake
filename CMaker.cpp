@@ -542,11 +542,13 @@ struct CMaker::Impl {
             }
         }
 
-        LOG_F(INFO, "patchCBPs SDK:    %s", executionPlan.sdkDir.c_str());
-        LOG_F(INFO, "patchCBPs config: %s", executionPlan.configFilePath.c_str());
-        executionPlan.output.push_back("SDK:    " + executionPlan.sdkDir);
-        executionPlan.output.push_back("Config: " + executionPlan.configFilePath);
-        executionPlan.output.push_back("Finished patching...\n");
+        if (!cbpFilePaths.empty()) {
+            LOG_F(INFO, "patchCBPs SDK:    %s", executionPlan.sdkDir.c_str());
+            LOG_F(INFO, "patchCBPs config: %s", executionPlan.configFilePath.c_str());
+            executionPlan.output.push_back("SDK:    " + executionPlan.sdkDir);
+            executionPlan.output.push_back("Config: " + executionPlan.configFilePath);
+            executionPlan.output.push_back("Finished patching...\n");
+        }
     }
 
     bool hasExecutionPlan() const { return !executionPlan.exePath.empty() && !executionPlan.cmdLineArgs.args.empty(); }

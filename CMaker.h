@@ -20,7 +20,7 @@ struct ExecutionPlan {
     CmdLineArgs cmdLineArgs;
 
     std::string configFilePath;
-    std::vector<std::string> cbpFilePaths;
+    std::vector<std::string> cbpSearchPaths;
     std::string projectDir;
     std::string buildDir;
     std::string sdkPath;

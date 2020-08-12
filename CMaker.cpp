@@ -39,8 +39,9 @@
     do {                                                                                                               \
         LOG_STR(header " exePath: ", (executionPlan).exePath);                                                         \
         LOG_CmdLineArgs(header " cmdLineArgs", (executionPlan).cmdLineArgs);                                           \
-        LOG_STR_ARRAY(header " cbpFilePaths", (executionPlan).cbpFilePaths);                                           \
+        LOG_STR_ARRAY(header " cbpSearchPaths", (executionPlan).cbpSearchPaths);                                       \
         LOG_STR_ARRAY(header " logs", (executionPlan).logs);                                                           \
+        LOG_STR_ARRAY(header " output", (executionPlan).output);                                                       \
     } while (false)
 
 namespace gatools {
@@ -563,11 +564,6 @@ struct CMaker::Impl {
         LOG_F(INFO, "init patchCbp: %d", patchCbp);
         LOG_F(INFO, "init hasConfig: %d", hasConfig);
 
-        if (patchCbp) {
-            std::string outputLine = join(executionPlan.cbpFilePaths, ", ") + " will be patched";
-            executionPlan.output.push_back(outputLine);
-        }
-
         int retCode = -1;
         for (;;) {
             if (cmdLineArgs.args.size() == 0) {
@@ -603,19 +599,13 @@ struct CMaker::Impl {
                 env.push_back(v);
             }
 
-            // Gather all CBP files
+            // Gather all the CBP search paths
             if (patchCbp) {
-                ga::DirectorySearch ds;
-                ds.includeFiles = true;
-                ds.includeDirectories = false;
-                ds.maxRecursionLevel = 0;
-                ds.allowedExtensions.insert("cbp");
-                ga::findInDirectory(
-                    executionPlan.buildDir,
-                    [this](const ga::ChildEntry &entry) { executionPlan.cbpFilePaths.push_back(entry.path); }, ds);
+                executionPlan.cbpSearchPaths.push_back(executionPlan.buildDir);
+                executionPlan.output.push_back("All *.cbp in directory " + executionPlan.buildDir + " will be patched");
             }
 
-            LOG_ExecutionPlan("init", executionPlan);
+            LOG_ExecutionPlan("init.ep", executionPlan);
             retCode = 0;
             break;
         }
@@ -673,7 +663,18 @@ struct CMaker::Impl {
             return -1;
         }
 
-        patchCBPs(executionPlan.cbpFilePaths);
+        std::vector<std::string> cbpFilePaths;
+        ga::DirectorySearch ds;
+        ds.includeFiles = true;
+        ds.includeDirectories = false;
+        ds.maxRecursionLevel = 0;
+        ds.allowedExtensions.insert("cbp");
+        for (const std::string &searchDir : executionPlan.cbpSearchPaths) {
+            ga::findInDirectory(
+                searchDir, [&cbpFilePaths](const ga::ChildEntry &entry) { cbpFilePaths.push_back(entry.path); }, ds);
+        }
+
+        patchCBPs(cbpFilePaths);
         return 0;
     }
 };
@@ -853,9 +854,9 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         ASSERT_EQ(cmdLineArgs.pwd, ep->cmdLineArgs.pwd);
         ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
-        ASSERT_TRUE(ep->cbpFilePaths.empty());
+        ASSERT_EQ(1, ep->cbpSearchPaths.size());
+        ASSERT_EQ(buildDir, ep->cbpSearchPaths[0]);
         ASSERT_TRUE(ep->logs.empty());
-
         ASSERT_EQ(1, ep->output.size());
     }
 
@@ -884,10 +885,9 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         ASSERT_EQ(cmdLineArgs.pwd, ep->cmdLineArgs.pwd);
         ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
-        ASSERT_TRUE(ep->cbpFilePaths.empty());
+        ASSERT_TRUE(ep->cbpSearchPaths.empty());
         ASSERT_TRUE(ep->logs.empty());
-
-        ASSERT_EQ(0, ep->output.size());
+        ASSERT_TRUE(ep->output.empty());
     }
 }
 
@@ -915,7 +915,7 @@ TEST_F(CMakerTest, ECHO) {
     ASSERT_EQ(cmdLineArgs.pwd, ep->cmdLineArgs.pwd);
     ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
-    ASSERT_TRUE(ep->cbpFilePaths.empty());
+    ASSERT_TRUE(ep->cbpSearchPaths.empty());
     ASSERT_TRUE(ep->logs.empty());
 }
 

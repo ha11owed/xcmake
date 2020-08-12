@@ -18,8 +18,6 @@ struct JProject : public JSharedConfig {
     std::string path;
     std::string sdkPath;
     std::set<std::string> buildPaths;
-    bool overrideFiles = true;
-    bool outputToStdout = true;
 };
 
 struct JConfig : public JSharedConfig {

@@ -52,6 +52,13 @@ inline void initlog(int argc, char **argv) {
     loguru::add_file(logFilePath.c_str(), loguru::Append, loguru::Verbosity_MAX);
 }
 
+inline void printOutput(const CMaker &cmaker) {
+    const ExecutionPlan *ep = cmaker.getExecutionPlan();
+    for (const std::string &line : ep->output) {
+        printf("%s\n", line.c_str());
+    }
+}
+
 int main(int argc, char **argv) {
     int result = -1;
     for (;;) {
@@ -99,6 +106,7 @@ int main(int argc, char **argv) {
         // pwd = "/home/alin/projects/build-cpp-httplib-Desktop-Debug/";
 
         result = cmaker.init(cmdLineArgs);
+        printOutput(cmaker);
         if (!result) {
             break;
         }
@@ -114,6 +122,7 @@ int main(int argc, char **argv) {
         }
 
         result = cmaker.patch();
+        printOutput(cmaker);
         break;
     }
 

@@ -13,7 +13,6 @@
 
 #include <deque>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 
 #ifdef CMAKER_WITH_UNIT_TESTS
@@ -507,6 +506,8 @@ struct CMaker::Impl {
 
     /// @brief patch the .cbp files from the build directory.
     void patchCBPs(const std::vector<std::string> &cbpFilePaths) {
+        executionPlan.output.clear();
+
         // Process all CBP files
         for (const std::string &filePath : cbpFilePaths) {
             tinyxml2::XMLDocument inXml;
@@ -519,13 +520,11 @@ struct CMaker::Impl {
             PatchResult patchResult = patchCBP(filePath, inXml);
 
             LOG_F(INFO, "patchCBPs filePath: %s PatchResult: %s", executionPlan.sdkDir.c_str(), asString(patchResult));
-            if (executionPlan.outputToStdout) {
-                std::cout << filePath << " PatchResult: " << asString(patchResult) << std::endl;
-            }
+            executionPlan.output.push_back(filePath + " PatchResult: " + asString(patchResult));
 
             switch (patchResult) {
             case PatchResult::Changed:
-                if (executionPlan.overrideFiles && !writeFileCb) {
+                if (!writeFileCb) {
                     std::string outFile = filePath + ".tmp";
                     std::string bakFile = filePath + ".bak";
                     inXml.SaveFile(outFile.c_str());
@@ -544,11 +543,9 @@ struct CMaker::Impl {
 
         LOG_F(INFO, "patchCBPs SDK:    %s", executionPlan.sdkDir.c_str());
         LOG_F(INFO, "patchCBPs config: %s", executionPlan.configFilePath.c_str());
-        if (executionPlan.outputToStdout) {
-            std::cout << "SDK:    " << executionPlan.sdkDir << std::endl;
-            std::cout << "config: " << executionPlan.configFilePath << std::endl;
-            std::cout << "Finished patching..." << std::endl;
-        }
+        executionPlan.output.push_back("SDK:    " + executionPlan.sdkDir);
+        executionPlan.output.push_back("Config: " + executionPlan.configFilePath);
+        executionPlan.output.push_back("Finished patching...\n");
     }
 
     bool hasExecutionPlan() const { return !executionPlan.exePath.empty() && !executionPlan.cmdLineArgs.args.empty(); }
@@ -565,6 +562,11 @@ struct CMaker::Impl {
         bool hasConfig = readConfiguration(executionPlan.projectDir, executionPlan.buildDir, project);
         LOG_F(INFO, "init patchCbp: %d", patchCbp);
         LOG_F(INFO, "init hasConfig: %d", hasConfig);
+
+        if (patchCbp) {
+            std::string outputLine = join(executionPlan.cbpFilePaths, ", ") + " will be patched";
+            executionPlan.output.push_back(outputLine);
+        }
 
         int retCode = -1;
         for (;;) {
@@ -741,7 +743,6 @@ class CMakerHelperTest : public ::testing::Test {
         executionPlan.projectDir = "/home/testuser/project";
         executionPlan.buildDir = "/home/testuser/build-proj";
         executionPlan.sdkDir = "/home/testuser/sdks/v42";
-        executionPlan.outputToStdout = false;
     }
 
     ExecutionPlan executionPlan;
@@ -797,7 +798,6 @@ TEST_F(CMakerTest, PatchCBPs) {
     executionPlan.projectDir = "/home/testuser/project";
     executionPlan.buildDir = "/home/testuser/build-proj";
     executionPlan.sdkDir = "/home/testuser/sdks/v42";
-    executionPlan.outputToStdout = false;
 
     // Transform the original xml
     tinyxml2::XMLDocument inXml;
@@ -855,6 +855,8 @@ TEST_F(CMakerTest, CMAKE_BASH) {
 
         ASSERT_TRUE(ep->cbpFilePaths.empty());
         ASSERT_TRUE(ep->logs.empty());
+
+        ASSERT_EQ(1, ep->output.size());
     }
 
     cmdLineArgs.args = {"xbash"};
@@ -884,6 +886,8 @@ TEST_F(CMakerTest, CMAKE_BASH) {
 
         ASSERT_TRUE(ep->cbpFilePaths.empty());
         ASSERT_TRUE(ep->logs.empty());
+
+        ASSERT_EQ(0, ep->output.size());
     }
 }
 

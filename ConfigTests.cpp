@@ -19,8 +19,6 @@ JConfig ConfigTests::createConfig(bool includeStar) {
         p.cmdReplacement["xcmake"] = {"${sdkPath}/cmake", "cmake"};
         p.path = "/home/testuser/project0";
         p.sdkPath = "/home/testuser/sdks/v42";
-        p.overrideFiles = true;
-        p.outputToStdout = true;
         expected.projects.push_back(p);
         if (includeStar) {
             p.path = "*";

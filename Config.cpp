@@ -66,8 +66,6 @@ inline void readJProject(const nlohmann::json &jObj, JProject &out) {
     readJSharedConfig(jObj, out);
     readJValue(jObj, "path", out.path);
     readJValue(jObj, "sdkPath", out.sdkPath);
-    readJValue(jObj, "overrideFiles", out.overrideFiles);
-    readJValue(jObj, "outputToStdout", out.outputToStdout);
     readJValue(jObj, "buildPaths", out.buildPaths);
 }
 
@@ -96,8 +94,6 @@ inline void writeJProject(const JProject &in, nlohmann::json &jOut) {
     writeJSharedConfig(in, jOut);
     jOut["path"] = in.path;
     jOut["sdkPath"] = in.sdkPath;
-    jOut["overrideFiles"] = in.overrideFiles;
-    jOut["outputToStdout"] = in.outputToStdout;
     jOut["buildPaths"] = in.buildPaths;
 }
 
@@ -122,8 +118,7 @@ bool operator==(const JProject &lhs, const JProject &rhs) {
         return true;
     }
     if (isJSharedConfigEqual(lhs, rhs)) {
-        return lhs.path == rhs.path && lhs.sdkPath == rhs.sdkPath && lhs.buildPaths == rhs.buildPaths &&
-               lhs.overrideFiles == rhs.overrideFiles && lhs.outputToStdout == rhs.outputToStdout;
+        return lhs.path == rhs.path && lhs.sdkPath == rhs.sdkPath && lhs.buildPaths == rhs.buildPaths;
     }
     return false;
 }

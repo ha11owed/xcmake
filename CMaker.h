@@ -20,8 +20,6 @@ struct ExecutionPlan {
     CmdLineArgs cmdLineArgs;
 
     std::string configFilePath;
-    bool overrideFiles = false;
-    bool outputToStdout = false;
     std::vector<std::string> cbpFilePaths;
     std::string projectDir;
     std::string buildDir;
@@ -35,6 +33,7 @@ struct ExecutionPlan {
     std::string oldVirtualFolderPrefix;
 
     std::vector<std::string> logs;
+    std::vector<std::string> output;
 };
 
 /// @brief Runs the specified command and patches the cbp file.

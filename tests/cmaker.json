@@ -16,7 +16,6 @@
         {
             "path": "*",
             "sdkPath": "/home/alin/sdks5/curr/",
-            "overrideFiles": false,
             "cmdEnvironment": [ "E2=2" ],
             "cmdReplacement": {
                 "xecho": [ "/usr/bin/echo", "/usr/bin/echo" ]

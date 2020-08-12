@@ -40,6 +40,29 @@ TEST_F(ConfigTests, JsonSerialization) {
     ASSERT_EQ(expected, actual);
 }
 
+TEST_F(ConfigTests, Simplify) {
+    JConfig config;
+    {
+        JProject proj;
+        proj.path = "/some/path//.";
+        proj.sdkPath = "/some/./sdk/";
+        proj.buildPaths.insert("/build1");
+        proj.buildPaths.insert("/build1/.");
+        proj.buildPaths.insert("/build2/");
+        proj.buildPaths.insert("/build2/././");
+        config.projects.push_back(proj);
+    }
+
+    simplify(config);
+
+    JProject &p = config.projects[0];
+    ASSERT_EQ("/some/path", p.path);
+    ASSERT_EQ("/some/sdk", p.sdkPath);
+    ASSERT_EQ(2, p.buildPaths.size());
+    ASSERT_TRUE(p.buildPaths.find("/build1") != p.buildPaths.end());
+    ASSERT_TRUE(p.buildPaths.find("/build2") != p.buildPaths.end());
+}
+
 TEST_F(ConfigTests, SelectProject0) {
     JConfig config = createConfig();
     JProject expectedProject = config.projects[0];

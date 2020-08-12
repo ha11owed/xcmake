@@ -151,6 +151,21 @@ JConfig deserialize(const std::string &in) {
     return config;
 }
 
+void simplify(JConfig &inOut) {
+    for (JProject &proj : inOut.projects) {
+        ga::getSimplePath(proj.path, proj.path);
+        ga::getSimplePath(proj.sdkPath, proj.sdkPath);
+
+        std::set<std::string> buildPaths;
+        for (const std::string &path : proj.buildPaths) {
+            std::string spath;
+            ga::getSimplePath(path, spath);
+            buildPaths.insert(spath);
+        }
+        proj.buildPaths = buildPaths;
+    }
+}
+
 inline void replaceAll(const std::string &from, const std::string &to, std::string &inOutStr) {
     if (from.empty()) {
         return;

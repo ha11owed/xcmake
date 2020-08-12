@@ -39,7 +39,7 @@ inline void initlog(int argc, char **argv) {
     // Children processes that do logging will use the name of the parent
     static std::string logFilePath;
     if (logFilePath.empty()) {
-        logFilePath = "/tmp/xmake/";
+        logFilePath = "/tmp/xcmake/";
         if (argc >= 1) {
             std::string fileName = ga::getFilename(argv[0]);
             if (!fileName.empty()) {
@@ -65,11 +65,13 @@ inline void initlog(int argc, char **argv) {
     LOG_F(INFO, "Starting to log from process: %d", getpid());
 }
 
-inline void printOutput(const CMaker &cmaker) {
+inline void logOutput(const CMaker &cmaker, bool doPrintf = false) {
     const ExecutionPlan *ep = cmaker.getExecutionPlan();
     for (const std::string &line : ep->output) {
         LOG_F(INFO, "out: %s", line.c_str());
-        printf("%s\n", line.c_str());
+        if (doPrintf) {
+            printf("%s\n", line.c_str());
+        }
     }
 }
 
@@ -110,8 +112,9 @@ int main(int argc, char **argv) {
         // Initialize
         CMaker cmaker;
         result = cmaker.init(cmdLineArgs);
-        printOutput(cmaker);
+        logOutput(cmaker, true);
         if (result != 0) {
+            LOG_F(ERROR, "Initialization failed with %d\n", result);
             printf("Initialization failed with %d\n", result);
             break;
         }
@@ -121,14 +124,14 @@ int main(int argc, char **argv) {
         result = cmaker.run();
         // If we are here we are in the child. Continue logging.
         initlog(argc, argv);
-        printOutput(cmaker);
+        logOutput(cmaker);
         if (result != 0) {
-            printf("Run failed with %d\n", result);
+            LOG_F(ERROR, "Run failed with %d\n", result);
             break;
         }
 
         result = cmaker.patch();
-        printOutput(cmaker);
+        logOutput(cmaker);
         break;
     }
 

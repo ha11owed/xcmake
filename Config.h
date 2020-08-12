@@ -33,6 +33,8 @@ bool operator!=(const JConfig &lhs, const JConfig &rhs);
 std::string serialize(const JConfig &in);
 JConfig deserialize(const std::string &in);
 
+void simplify(JConfig &inOut);
+
 bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JProject &out);
 
 /// @brief will check if the build directories actually exist in the file system when updating.

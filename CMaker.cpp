@@ -279,6 +279,37 @@ std::vector<std::string> getConfigFilePaths(const ExecutionPlan &executionPlan) 
     return configFilePaths;
 }
 
+/// @brief gather the parameters for patching the .cbp files to use a SDK.
+/// @return true if the CBPs should be patched and the parameters have been gathered.
+inline bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectDir, std::string &outBuildDir) {
+    LOG_F(INFO, "canPatchCBP");
+    outProjectDir.clear();
+    outBuildDir.clear();
+
+    bool patchCbp = false;
+
+    if (cmdLineArgs.args.size() >= 2) {
+        patchCbp = (ga::getFilename(cmdLineArgs.args[0]).find("make") != std::string::npos) &&
+                   ga::pathExists(cmdLineArgs.args[1]) &&
+                   (ga::pathExists(ga::combine(cmdLineArgs.pwd, "CMakeCache.txt")) ||
+                    cmdLineArgs.pwd.find("build") != std::string::npos);
+        if (patchCbp) {
+            outProjectDir = cmdLineArgs.args[1];
+            outBuildDir = cmdLineArgs.pwd;
+            ga::getSimplePath(outProjectDir, outProjectDir);
+            ga::getSimplePath(outBuildDir, outBuildDir);
+            LOG_F(INFO, "projectDir: %s. buildDir: %s. patchCbp: %d", outProjectDir.c_str(), outBuildDir.c_str(),
+                  patchCbp);
+        } else {
+            LOG_F(INFO, "args[1]: %s. patchCbp: %d", cmdLineArgs.args[1].c_str(), patchCbp);
+        }
+    } else {
+        LOG_F(INFO, "args.size() = %lu. patchCbp: %d", cmdLineArgs.args.size(), patchCbp);
+    }
+
+    return patchCbp;
+}
+
 struct CMaker::Impl {
     using WriteFileCb = std::function<void(const std::string &filePath, const std::string &content)>;
 
@@ -328,35 +359,6 @@ struct CMaker::Impl {
 
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
     /// @return true if the CBPs should be patched and the parameters have been gathered.
-    bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectDir, std::string &outBuildDir) {
-        LOG_F(INFO, "canPatchCBP");
-        outProjectDir.clear();
-        outBuildDir.clear();
-
-        bool patchCbp = false;
-
-        if (cmdLineArgs.args.size() >= 2) {
-            patchCbp = (ga::getFilename(cmdLineArgs.args[0]).find("make") != std::string::npos) &&
-                       ga::pathExists(cmdLineArgs.args[1]) &&
-                       (ga::pathExists(ga::combine(cmdLineArgs.pwd, "CMakeCache.txt")) ||
-                        cmdLineArgs.pwd.find("build") != std::string::npos);
-            if (patchCbp) {
-                outProjectDir = cmdLineArgs.args[1];
-                outBuildDir = cmdLineArgs.pwd;
-                LOG_F(INFO, "projectDir: %s. buildDir: %s. patchCbp: %d", outProjectDir.c_str(), outBuildDir.c_str(),
-                      patchCbp);
-            } else {
-                LOG_F(INFO, "args[1]: %s. patchCbp: %d", cmdLineArgs.args[1].c_str(), patchCbp);
-            }
-        } else {
-            LOG_F(INFO, "args.size() = %lu. patchCbp: %d", cmdLineArgs.args.size(), patchCbp);
-        }
-
-        return patchCbp;
-    }
-
-    /// @brief gather the parameters for patching the .cbp files to use a SDK.
-    /// @return true if the CBPs should be patched and the parameters have been gathered.
     bool readConfiguration(const std::string &projectDir, const std::string &buildDir, JProject &outProject) {
         LOG_F(INFO, "preparePatchCBPs");
         outProject = JProject();
@@ -377,6 +379,7 @@ struct CMaker::Impl {
             }
 
             config = deserialize(jStr);
+            simplify(config);
             selectedConfigFilePath = configFilePath;
             break;
         }
@@ -639,6 +642,7 @@ struct CMaker::Impl {
                     if (ppid == oldppid) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     } else {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         executionPlan.output.push_back("getppid matches the parent before the fork" +
                                                        std::to_string(ppid));
                         retCode = 0;

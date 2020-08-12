@@ -468,7 +468,7 @@ std::vector<std::string> splitPath(const std::string &path) {
         }
     }
 
-    if (start > end && start < n - 1) {
+    if (start >= end && start + 1 < n) {
         parts.push_back(path.substr(start));
     }
     return parts;

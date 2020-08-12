@@ -14,6 +14,7 @@
 #include <deque>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 #ifdef CMAKER_WITH_UNIT_TESTS
 #include "gtest/gtest.h"
@@ -40,7 +41,6 @@
         LOG_STR(header " exePath: ", (executionPlan).exePath);                                                         \
         LOG_CmdLineArgs(header " cmdLineArgs", (executionPlan).cmdLineArgs);                                           \
         LOG_STR_ARRAY(header " cbpSearchPaths", (executionPlan).cbpSearchPaths);                                       \
-        LOG_STR_ARRAY(header " logs", (executionPlan).logs);                                                           \
         LOG_STR_ARRAY(header " output", (executionPlan).output);                                                       \
     } while (false)
 
@@ -618,32 +618,41 @@ struct CMaker::Impl {
     int step2run() {
         int retCode = -1;
         if (!hasExecutionPlan()) {
-            executionPlan.logs.push_back("no execution plan");
+            executionPlan.output.push_back("no execution plan");
             return retCode;
         }
 
-        executionPlan.logs.push_back("execute: " + executionPlan.exePath);
+        executionPlan.output.push_back("execute: " + executionPlan.exePath);
 
         pid_t oldppid = getppid();
         pid_t pid = fork();
         switch (pid) {
         case -1:
-            executionPlan.logs.push_back("cannot fork");
+            executionPlan.output.push_back("cannot fork");
             break;
         case 0:
             // Child process
             {
-                pid_t ppid = getppid();
-                if (ppid == oldppid) {
-                    executionPlan.logs.push_back("getppid matches the parent before the fork" + std::to_string(ppid));
-                } else {
-                    int status;
-                    if (ppid != waitpid(ppid, &status, 0)) {
-                        executionPlan.logs.push_back("waitpid " + std::to_string(ppid));
-                        return retCode;
+                auto tp1 = std::chrono::steady_clock::now();
+                while (true) {
+                    pid_t ppid = getppid();
+                    if (ppid == oldppid) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    } else {
+                        executionPlan.output.push_back("getppid matches the parent before the fork" +
+                                                       std::to_string(ppid));
+                        retCode = 0;
+                        break;
+                    }
+
+                    auto tp2 = std::chrono::steady_clock::now();
+                    auto delta = std::chrono::duration_cast<std::chrono::seconds>(tp2 - tp1);
+                    if (delta > std::chrono::seconds(600)) {
+                        executionPlan.output.push_back("timeout after " + std::to_string(delta.count()) + " seconds");
+                        retCode = -3;
+                        break;
                     }
                 }
-                retCode = 0;
             }
             break;
         default:
@@ -858,7 +867,6 @@ TEST_F(CMakerTest, CMAKE_BASH) {
 
         ASSERT_EQ(1, ep->cbpSearchPaths.size());
         ASSERT_EQ(buildDir, ep->cbpSearchPaths[0]);
-        ASSERT_TRUE(ep->logs.empty());
         ASSERT_EQ(1, ep->output.size());
     }
 
@@ -888,7 +896,6 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
         ASSERT_TRUE(ep->cbpSearchPaths.empty());
-        ASSERT_TRUE(ep->logs.empty());
         ASSERT_TRUE(ep->output.empty());
     }
 }
@@ -918,7 +925,7 @@ TEST_F(CMakerTest, ECHO) {
     ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
     ASSERT_TRUE(ep->cbpSearchPaths.empty());
-    ASSERT_TRUE(ep->logs.empty());
+    ASSERT_TRUE(ep->output.empty());
 }
 
 } // namespace gatools

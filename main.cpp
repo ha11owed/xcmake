@@ -28,33 +28,47 @@ using namespace gatools;
 inline void initlog(int argc, char **argv) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
 
-    time_t rawtime;
-    struct tm *timeinfo;
-    char buffer[80];
+    int argcT = argc;
+    loguru::Options options;
+    options.verbosity_flag = nullptr;
+    options.main_thread_name = nullptr;
+    options.signals = loguru::SignalOptions::none();
+    loguru::init(argcT, argv, options);
 
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d_%H%M%S", timeinfo);
-
-    std::string logFilePath("/tmp/xmake/");
-    if (argc >= 1) {
-        std::string fileName = ga::getFilename(argv[0]);
-        if (!fileName.empty()) {
-            logFilePath += fileName;
-            logFilePath += "_";
+    // The log file path is decided on the first call.
+    // Children processes that do logging will use the name of the parent
+    static std::string logFilePath;
+    if (logFilePath.empty()) {
+        logFilePath = "/tmp/xmake/";
+        if (argc >= 1) {
+            std::string fileName = ga::getFilename(argv[0]);
+            if (!fileName.empty()) {
+                logFilePath += fileName;
+                logFilePath += "_";
+            }
         }
+
+        time_t rawtime;
+        struct tm *timeinfo;
+        char buffer[80];
+
+        time(&rawtime);
+        timeinfo = localtime(&rawtime);
+
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d_%H%M%S", timeinfo);
+        logFilePath += buffer;
+        logFilePath += "_";
+        logFilePath += std::to_string(getpid());
+        logFilePath += ".log";
     }
-    logFilePath += buffer;
-    logFilePath += "_";
-    logFilePath += std::to_string(getpid());
-    logFilePath += ".log";
     loguru::add_file(logFilePath.c_str(), loguru::Append, loguru::Verbosity_MAX);
+    LOG_F(INFO, "Starting to log from process: %d", getpid());
 }
 
 inline void printOutput(const CMaker &cmaker) {
     const ExecutionPlan *ep = cmaker.getExecutionPlan();
     for (const std::string &line : ep->output) {
+        LOG_F(INFO, "out: %s", line.c_str());
         printf("%s\n", line.c_str());
     }
 }
@@ -105,13 +119,14 @@ int main(int argc, char **argv) {
         // Run the original command. Stop logging to avoid issues with fork.
         loguru::shutdown();
         result = cmaker.run();
+        // If we are here we are in the child. Continue logging.
+        initlog(argc, argv);
+        printOutput(cmaker);
         if (result != 0) {
             printf("Run failed with %d\n", result);
             break;
         }
 
-        // If we are here we are in the child. Continue logging.
-        initlog(argc, argv);
         result = cmaker.patch();
         printOutput(cmaker);
         break;

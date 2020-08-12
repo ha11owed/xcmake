@@ -32,7 +32,6 @@ struct ExecutionPlan {
     std::string oldSdkPrefix;
     std::string oldVirtualFolderPrefix;
 
-    std::vector<std::string> logs;
     std::vector<std::string> output;
 };
 

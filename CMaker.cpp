@@ -604,10 +604,13 @@ struct CMaker::Impl {
                 env.push_back(v);
             }
 
-            // Gather all the CBP search paths
+            // Gather all the CBP search paths and
+            // output a message when running cmake to prevent qtcreator from stating the cmake server.
             if (patchCbp) {
                 executionPlan.cbpSearchPaths.push_back(executionPlan.buildDir);
                 executionPlan.output.push_back("All *.cbp in directory " + executionPlan.buildDir + " will be patched");
+            } else if (executionPlan.cmdLineArgs.args[0].find("cmake") != std::string::npos) {
+                executionPlan.output.push_back("Running xcmake...");
             }
 
             LOG_ExecutionPlan("init.ep", executionPlan);

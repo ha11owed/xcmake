@@ -28,6 +28,7 @@ using namespace gatools;
 inline void initlog(int argc, char **argv) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
 
+#ifdef CMAKER_WITH_LOGGER
     int argcT = argc;
     loguru::Options options;
     options.verbosity_flag = nullptr;
@@ -63,16 +64,22 @@ inline void initlog(int argc, char **argv) {
     }
     loguru::add_file(logFilePath.c_str(), loguru::Append, loguru::Verbosity_MAX);
     LOG_F(INFO, "Starting to log from process: %d", getpid());
+#endif
 }
 
-inline void logOutput(const CMaker &cmaker, bool doPrintf = false) {
+inline void logOutput(const CMaker &cmaker) {
     const ExecutionPlan *ep = cmaker.getExecutionPlan();
     for (const std::string &line : ep->output) {
         LOG_F(INFO, "out: %s", line.c_str());
-        if (doPrintf) {
-            printf("%s\n", line.c_str());
-        }
     }
+}
+
+inline void printOutput(const CMaker &cmaker) {
+    const ExecutionPlan *ep = cmaker.getExecutionPlan();
+    for (const std::string &line : ep->output) {
+        printf("%s\n", line.c_str());
+    }
+    fflush(stdout);
 }
 
 int main(int argc, char **argv) {
@@ -112,7 +119,8 @@ int main(int argc, char **argv) {
         // Initialize
         CMaker cmaker;
         result = cmaker.init(cmdLineArgs);
-        logOutput(cmaker, true);
+        logOutput(cmaker);
+        printOutput(cmaker);
         if (result != 0) {
             LOG_F(ERROR, "Initialization failed with %d\n", result);
             printf("Initialization failed with %d\n", result);

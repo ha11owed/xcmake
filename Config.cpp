@@ -210,6 +210,22 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
     }
 
     if (hasMatch) {
+        const std::string sdkDirWithS(selectedProj.sdkPath + "/");
+
+        for (const std::string &val : in.gccClangFixes) {
+            selectedProj.gccClangFixes.insert(val);
+        }
+
+        std::vector<std::string> dirs = in.extraAddDirectory;
+        for (const std::string &dir : selectedProj.extraAddDirectory) {
+            dirs.push_back(dir);
+        }
+        for (std::string &dir : dirs) {
+            replaceAll("${sdkPath}", sdkDirWithS, dir);
+            ga::getSimplePath(dir, dir);
+        }
+        selectedProj.extraAddDirectory = dirs;
+
         for (const std::string &env : in.cmdEnvironment) {
             auto it = selectedProj.cmdEnvironment.find(env);
             if (it == selectedProj.cmdEnvironment.end()) {
@@ -224,7 +240,6 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
             }
         }
 
-        std::string sdkDirWithS(selectedProj.sdkPath + "/");
         std::map<std::string, std::vector<std::string>> smallKeyCmdReplacement;
         for (auto it = selectedProj.cmdReplacement.begin(); it != selectedProj.cmdReplacement.end(); it++) {
             const std::string &key = it->first;

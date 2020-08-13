@@ -23,11 +23,10 @@ struct ExecutionPlan {
     std::vector<std::string> cbpSearchPaths;
     std::string projectDir;
     std::string buildDir;
-    std::string sdkPath;
+    std::string sdkDir;
     std::vector<std::string> extraAddDirectory;
     std::set<std::string> gccClangFixes;
 
-    std::string sdkDir;
     std::string virtualFolderPrefix;
     std::string oldSdkPrefix;
     std::string oldVirtualFolderPrefix;

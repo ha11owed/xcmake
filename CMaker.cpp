@@ -510,8 +510,6 @@ struct CMaker::Impl {
 
     /// @brief patch the .cbp files from the build directory.
     void patchCBPs(const std::vector<std::string> &cbpFilePaths) {
-        executionPlan.output.clear();
-
         // Process all CBP files
         for (const std::string &filePath : cbpFilePaths) {
             tinyxml2::XMLDocument inXml;
@@ -604,11 +602,16 @@ struct CMaker::Impl {
                 env.push_back(v);
             }
 
+            executionPlan.sdkDir = project.sdkPath;
+            executionPlan.gccClangFixes = project.gccClangFixes;
+            executionPlan.extraAddDirectory = project.extraAddDirectory;
+
             // Gather all the CBP search paths and
             // output a message when running cmake to prevent qtcreator from stating the cmake server.
             if (patchCbp) {
                 executionPlan.cbpSearchPaths.push_back(executionPlan.buildDir);
-                executionPlan.output.push_back("All *.cbp in directory " + executionPlan.buildDir + " will be patched");
+                executionPlan.output.push_back("All *.cbp in " + executionPlan.buildDir + " will use " +
+                                               executionPlan.sdkDir);
             } else if (executionPlan.cmdLineArgs.args[0].find("cmake") != std::string::npos) {
                 executionPlan.output.push_back("Running xcmake...");
             }
@@ -622,6 +625,7 @@ struct CMaker::Impl {
     }
 
     int step2run() {
+        executionPlan.output.clear();
         int retCode = -1;
         if (!hasExecutionPlan()) {
             executionPlan.output.push_back("no execution plan");
@@ -677,6 +681,7 @@ struct CMaker::Impl {
     }
 
     int step3patch() {
+        executionPlan.output.clear();
         if (!hasExecutionPlan()) {
             return -1;
         }
@@ -785,6 +790,7 @@ TEST_F(CMakerHelperTest, VirtualFoldersChange) {
 }
 
 static std::string cmakerJson;
+static std::string inputCbp;
 
 class CMakerTest : public ::testing::Test {
   public:
@@ -795,6 +801,9 @@ class CMakerTest : public ::testing::Test {
 
         if (cmakerJson.empty()) {
             ga::readFile("cmaker.json", cmakerJson);
+        }
+        if (inputCbp.empty()) {
+            ga::readFile("testproject_input.cbp", inputCbp);
         }
     }
 
@@ -872,11 +881,27 @@ TEST_F(CMakerTest, CMAKE_BASH) {
         ASSERT_EQ(cmdLineArgs.pwd, ep->cmdLineArgs.pwd);
         ASSERT_EQ(cmdLineArgs.home, ep->cmdLineArgs.home);
 
+        ASSERT_EQ(buildDir, ep->buildDir);
+        ASSERT_EQ(projectDir, ep->projectDir);
+        ASSERT_EQ(sdkDir, ep->sdkDir);
+        ASSERT_EQ(1, ep->extraAddDirectory.size());
+        ASSERT_EQ(1, ep->gccClangFixes.size());
+
         ASSERT_EQ(1, ep->cbpSearchPaths.size());
         ASSERT_EQ(buildDir, ep->cbpSearchPaths[0]);
         ASSERT_EQ(1, ep->output.size());
     }
 
+    // we skip the run and just write the
+    ga::writeFile(buildDir + "/proj42.cbp", inputCbp);
+
+    r = cmaker.patch();
+    ASSERT_EQ(0, r);
+    std::string actualCbp;
+    ga::readFile(buildDir + "/proj42.cbp", actualCbp);
+    ASSERT_NE(actualCbp, inputCbp);
+
+    // Execute bash in the build directory
     cmdLineArgs.args = {"xbash"};
     cmdLineArgs.pwd = ga::combine(buildDir, "some_dir");
     cmdLineArgs.home = tmpDir;

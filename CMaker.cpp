@@ -40,7 +40,23 @@
     do {                                                                                                               \
         LOG_STR(header " exePath: ", (executionPlan).exePath);                                                         \
         LOG_CmdLineArgs(header " cmdLineArgs", (executionPlan).cmdLineArgs);                                           \
+                                                                                                                       \
+        LOG_STR(header " configFilePath: ", (executionPlan).configFilePath);                                           \
         LOG_STR_ARRAY(header " cbpSearchPaths", (executionPlan).cbpSearchPaths);                                       \
+        LOG_STR(header " projectDir: ", (executionPlan).projectDir);                                                   \
+        LOG_STR(header " buildDir: ", (executionPlan).buildDir);                                                       \
+        LOG_STR(header " sdkDir: ", (executionPlan).sdkDir);                                                           \
+                                                                                                                       \
+        LOG_STR_ARRAY(header " extraAddDirectory", (executionPlan).extraAddDirectory);                                 \
+        if (!(executionPlan).virtualFolderPrefix.empty()) {                                                            \
+            LOG_STR(header " virtualFolderPrefix: ", (executionPlan).virtualFolderPrefix);                             \
+        }                                                                                                              \
+        if (!(executionPlan).oldSdkPrefix.empty()) {                                                                   \
+            LOG_STR(header " oldSdkPrefix: ", (executionPlan).oldSdkPrefix);                                           \
+        }                                                                                                              \
+        if (!(executionPlan).oldVirtualFolderPrefix.empty()) {                                                         \
+            LOG_STR(header " oldVirtualFolderPrefix: ", (executionPlan).oldVirtualFolderPrefix);                       \
+        }                                                                                                              \
         LOG_STR_ARRAY(header " output", (executionPlan).output);                                                       \
     } while (false)
 
@@ -422,6 +438,7 @@ struct CMaker::Impl {
         LOG_ExecutionPlan("", executionPlan);
 
         bool hasNotes = false;
+        bool hasNewNote = false;
 
         tinyxml2::XMLPrinter printerIn;
         inXml.Print(&printerIn);
@@ -468,6 +485,7 @@ struct CMaker::Impl {
                     if (!hasNotes) {
                         createNote(executionPlan, parentElem);
                         hasNotes = true;
+                        hasNewNote = true;
                     }
                     addPrefixToVirtualFolder(executionPlan, curr, "virtualFolders");
                 }
@@ -475,7 +493,8 @@ struct CMaker::Impl {
 
             enqueueWithSiblings(curr->FirstChildElement(), curr, q);
 
-            if (name == "Compiler") {
+            /// @todo we should actually store the old values in the note instead of just checking if the note exists.
+            if (hasNewNote && name == "Compiler") {
                 for (const std::string &addDir : executionPlan.extraAddDirectory) {
                     XmlElemPtr elem = curr->InsertNewChildElement("Add");
                     elem->SetAttribute("directory", addDir.c_str());
@@ -483,7 +502,7 @@ struct CMaker::Impl {
                 }
 
                 // Add the options at the beginning of the Compiler section
-                for (const std::string &addOption : executionPlan.extraAddDirectory) {
+                for (const std::string &addOption : executionPlan.gccClangFixes) {
                     XmlElemPtr elem = curr->InsertNewChildElement("Add");
                     elem->SetAttribute("option", addOption.c_str());
                     curr->InsertFirstChild(elem);
@@ -691,10 +710,20 @@ struct CMaker::Impl {
         ds.includeFiles = true;
         ds.includeDirectories = false;
         ds.maxRecursionLevel = 0;
-        ds.allowedExtensions.insert("cbp");
         for (const std::string &searchDir : executionPlan.cbpSearchPaths) {
             ga::findInDirectory(
-                searchDir, [&cbpFilePaths](const ga::ChildEntry &entry) { cbpFilePaths.push_back(entry.path); }, ds);
+                searchDir,
+                [&cbpFilePaths](const ga::ChildEntry &entry) {
+                    const char *ext = ga::getFileExtension(entry.path);
+                    if ((ext != nullptr) &&              //
+                        (std::tolower(ext[0]) == 'c') && // extension exists
+                        (std::tolower(ext[1]) == 'b') && // and is "cbp"
+                        (std::tolower(ext[2]) == 'p') && //
+                        (ext[3] == '\0')) {
+                        cbpFilePaths.push_back(entry.path);
+                    }
+                },
+                ds);
         }
 
         patchCBPs(cbpFilePaths);
@@ -772,6 +801,18 @@ class CMakerHelperTest : public ::testing::Test {
     ExecutionPlan executionPlan;
 };
 
+TEST_F(CMakerHelperTest, CompilerAddDirectory) {
+
+    tinyxml2::XMLDocument doc;
+    XmlElemPtr elem = doc.NewElement("Add");
+    elem->SetAttribute("directory", "/usr/test/include");
+    addPrefix(elem, "directory", "/home/testuser/sdks/v42");
+
+    std::string actual;
+    getAttribute(elem, "directory", actual);
+    ASSERT_EQ(actual, "/home/testuser/sdks/v42/usr/test/include");
+}
+
 TEST_F(CMakerHelperTest, VirtualFoldersNoChange) {
 
     std::string value = "CMake Files\\;CMake Files\\..\\;CMake Files\\..\\..\\;CMake Files\\..\\..\\..\\";
@@ -826,6 +867,10 @@ TEST_F(CMakerTest, PatchCBPs) {
     executionPlan.projectDir = "/home/testuser/project";
     executionPlan.buildDir = "/home/testuser/build-proj";
     executionPlan.sdkDir = "/home/testuser/sdks/v42";
+    executionPlan.gccClangFixes.insert("-gcc1");
+    executionPlan.gccClangFixes.insert("-gcc2");
+    executionPlan.extraAddDirectory.push_back("/extra1");
+    executionPlan.extraAddDirectory.push_back("/extra2");
 
     // Transform the original xml
     tinyxml2::XMLDocument inXml;

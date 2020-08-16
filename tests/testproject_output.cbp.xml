@@ -15,7 +15,11 @@
                 <Option working_dir="/home/testuser/build-testproj-Desktop-Debug"/>
                 <Option type="4"/>
                 <Compiler>
+                    <Add option="-gcc2"/>
+                    <Add option="-gcc1"/>
                     <Add directory="/home/testuser/sdks/v42/usr/include/somelib"/>
+                    <Add directory="/extra1"/>
+                    <Add directory="/extra2"/>
                 </Compiler>
                 <MakeCommands>
                     <Build command="/usr/bin/make -j8 -f &quot;/home/testuser/build-testproj-Desktop-Debug/Makefile&quot;  VERBOSE=1 all"/>

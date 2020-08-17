@@ -181,7 +181,8 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
     JProject selectedProj;
     bool hasMatch = false;
     for (const JProject &proj : in.projects) {
-        if (proj.path == projectOrBuildDir || (proj.buildPaths.find(projectOrBuildDir) != proj.buildPaths.end())) {
+        if ((projectOrBuildDir.find(proj.path) == 0) ||
+            (proj.buildPaths.find(projectOrBuildDir) != proj.buildPaths.end())) {
             hasMatch = true;
             selectedProj = proj;
             break;

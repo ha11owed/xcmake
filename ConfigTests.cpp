@@ -71,10 +71,14 @@ TEST_F(ConfigTests, SelectProject0) {
     expectedProject.cmdReplacement.insert({"xecho", {"/usr/bin/echo", "/home/testuser/sdks/v42"}});
     expectedProject.cmdReplacement["xcmake"][0] = "/home/testuser/sdks/v42/cmake";
 
-    JProject actualProject;
-    ASSERT_TRUE(selectProject(config, "/home/testuser/project0", actualProject));
-    ASSERT_EQ("/home/testuser/project0", actualProject.path);
-    ASSERT_EQ(expectedProject, actualProject);
+    const std::vector<std::string> buildOrProjPaths{"/home/testuser/project0", "/home/testuser/project0/",
+                                                    "/home/testuser/project0/somedir/"};
+    for (const std::string &path : buildOrProjPaths) {
+        JProject actualProject;
+        ASSERT_TRUE(selectProject(config, path, actualProject));
+        ASSERT_EQ("/home/testuser/project0", actualProject.path);
+        ASSERT_EQ(expectedProject, actualProject);
+    }
 }
 
 TEST_F(ConfigTests, SelectProjectStar) {

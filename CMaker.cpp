@@ -435,7 +435,7 @@ struct CMaker::Impl {
 
         cleanPathSeparators(virtualFolderPrefix, '\\');
         executionPlan.virtualFolderPrefix = "..\\" + virtualFolderPrefix;
-        LOG_ExecutionPlan("", executionPlan);
+        LOG_ExecutionPlan("patchCBP", executionPlan);
 
         bool hasNotes = false;
         bool hasNewNote = false;
@@ -540,7 +540,7 @@ struct CMaker::Impl {
 
             PatchResult patchResult = patchCBP(filePath, inXml);
 
-            LOG_F(INFO, "patchCBPs filePath: %s PatchResult: %s", executionPlan.sdkDir.c_str(), asString(patchResult));
+            LOG_F(INFO, "patchCBPs filePath: %s PatchResult: %s", filePath.c_str(), asString(patchResult));
             executionPlan.output.push_back(filePath + " PatchResult: " + asString(patchResult));
 
             switch (patchResult) {

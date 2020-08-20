@@ -23,7 +23,10 @@ JConfig ConfigTests::createConfig(bool includeStar) {
         if (includeStar) {
             p.path = "*";
             p.sdkPath = "/home/testuser/sdks/v45";
+            p.buildPaths.insert("/home");
+            p.buildPaths.insert("/home/testuser");
             expected.projects.push_back(p);
+            p.buildPaths.clear();
         }
         p.path = "/home/testuser/project2";
         p.sdkPath = "/home/testuser/sdks/v43";
@@ -136,6 +139,13 @@ TEST_F(ConfigTests, UpdateProject2) {
 
     actual.projects[0].buildPaths.insert("/home/testuser/buildDir4/");
     ASSERT_TRUE(updateProject("/home/testuser/project2", "/home/testuser/buildDir4/", actual));
+}
+
+TEST_F(ConfigTests, UpdateProjectStar) {
+    JConfig expected = createConfig();
+    JConfig actual = expected;
+    ASSERT_FALSE(updateProject("/home/testuser", "/home/testuser/buildDir", actual));
+    ASSERT_EQ(expected, actual);
 }
 
 TEST_F(ConfigTests, UpdateProjectInexistent) {

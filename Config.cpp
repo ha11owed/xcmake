@@ -193,72 +193,69 @@ inline void replaceAll(const std::string &from, const std::string &to, std::stri
     }
 }
 
-bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JProject &out) {
-    JProject selectedProj;
-    bool hasMatch = false;
+inline const JProject *findByPredicate(const JConfig &in, std::function<bool(const JProject &)> predicate) {
     for (const JProject &proj : in.projects) {
+        if (proj.path != "*" && predicate(proj)) {
+            return &proj;
+        }
+    }
+    for (const JProject &proj : in.projects) {
+        if (proj.path == "*" && predicate(proj)) {
+            return &proj;
+        }
+    }
+    return nullptr;
+}
+
+bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JProject &out) {
+    const JProject *selectedProj = findByPredicate(in, [&projectOrBuildDir](const JProject &proj) {
         if ((projectOrBuildDir.find(proj.path) == 0) ||
             (proj.buildPaths.find(projectOrBuildDir) != proj.buildPaths.end())) {
-            hasMatch = true;
-            selectedProj = proj;
-            break;
+            return true;
         }
-
         for (const std::string &buildPath : proj.buildPaths) {
             if (projectOrBuildDir.find(buildPath) == 0) {
-                hasMatch = true;
-                break;
+                return true;
             }
         }
+        return proj.path == "*";
+    });
 
-        if (hasMatch) {
-            selectedProj = proj;
-            break;
-        }
-    }
+    if (selectedProj != nullptr) {
+        out = *selectedProj;
 
-    if (!hasMatch) {
-        for (const JProject &proj : in.projects) {
-            if (proj.path == "*") {
-                selectedProj = proj;
-                hasMatch = true;
-            }
-        }
-    }
-
-    if (hasMatch) {
-        const std::string sdkDirWithS(selectedProj.sdkPath + "/");
+        const std::string sdkDirWithS(out.sdkPath + "/");
 
         for (const std::string &val : in.gccClangFixes) {
-            selectedProj.gccClangFixes.insert(val);
+            out.gccClangFixes.insert(val);
         }
 
         std::vector<std::string> dirs = in.extraAddDirectory;
-        for (const std::string &dir : selectedProj.extraAddDirectory) {
+        for (const std::string &dir : out.extraAddDirectory) {
             dirs.push_back(dir);
         }
         for (std::string &dir : dirs) {
             replaceAll("${sdkPath}", sdkDirWithS, dir);
             ga::getSimplePath(dir, dir);
         }
-        selectedProj.extraAddDirectory = dirs;
+        out.extraAddDirectory = dirs;
 
         for (const std::string &env : in.cmdEnvironment) {
-            auto it = selectedProj.cmdEnvironment.find(env);
-            if (it == selectedProj.cmdEnvironment.end()) {
-                selectedProj.cmdEnvironment.insert(env);
+            auto it = out.cmdEnvironment.find(env);
+            if (it == out.cmdEnvironment.end()) {
+                out.cmdEnvironment.insert(env);
             }
         }
 
         for (const auto &kv : in.cmdReplacement) {
-            auto it = selectedProj.cmdReplacement.find(kv.first);
-            if (it == selectedProj.cmdReplacement.end()) {
-                selectedProj.cmdReplacement[kv.first] = kv.second;
+            auto it = out.cmdReplacement.find(kv.first);
+            if (it == out.cmdReplacement.end()) {
+                out.cmdReplacement[kv.first] = kv.second;
             }
         }
 
         std::map<std::string, std::vector<std::string>> smallKeyCmdReplacement;
-        for (auto it = selectedProj.cmdReplacement.begin(); it != selectedProj.cmdReplacement.end(); it++) {
+        for (auto it = out.cmdReplacement.begin(); it != out.cmdReplacement.end(); it++) {
             const std::string &key = it->first;
             std::vector<std::string> &values = it->second;
 
@@ -268,66 +265,54 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
             }
 
             std::string smallKey = ga::getFilename(key);
-            if (selectedProj.cmdReplacement.find(smallKey) == selectedProj.cmdReplacement.end()) {
+            if (out.cmdReplacement.find(smallKey) == out.cmdReplacement.end()) {
                 smallKeyCmdReplacement[smallKey] = values;
             }
         }
-        selectedProj.cmdReplacement.insert(smallKeyCmdReplacement.begin(), smallKeyCmdReplacement.end());
-        out = selectedProj;
+        out.cmdReplacement.insert(smallKeyCmdReplacement.begin(), smallKeyCmdReplacement.end());
     }
 
-    return hasMatch;
+    return (selectedProj != nullptr);
 }
 
 bool updateProject(const std::string &projectDir, const std::string &buildDir, JConfig &inOut) {
-    JProject *selectedProj = nullptr;
-    for (JProject &proj : inOut.projects) {
-        if (projectDir.find(proj.path) == 0) {
-            selectedProj = &proj;
-            break;
-        }
-    }
-
-    if (!selectedProj) {
-        for (JProject &proj : inOut.projects) {
-            if (proj.path == "*") {
-                selectedProj = &proj;
-            }
-        }
-    }
+    const JProject *constSelectedProj =
+        findByPredicate(inOut, [&projectDir](const JProject &proj) { return (projectDir.find(proj.path) == 0); });
 
     bool updated = false;
-    if (selectedProj) {
+    if (constSelectedProj != nullptr) {
+        JProject *selectedProj = const_cast<JProject *>(constSelectedProj);
+
         auto it = selectedProj->buildPaths.find(buildDir);
         if (it == selectedProj->buildPaths.end()) {
             selectedProj->buildPaths.insert(buildDir);
             updated = true;
         }
-    }
 
-    if (updated) {
-        for (JProject &proj : inOut.projects) {
-            std::set<std::string> toDelete;
-            for (const std::string &path : proj.buildPaths) {
-                if (selectedProj == &proj) {
-                    if (path == buildDir) {
-                        // we will not remove the current path that we inserted
-                        continue;
+        if (updated) {
+            for (JProject &proj : inOut.projects) {
+                std::set<std::string> toDelete;
+                for (const std::string &path : proj.buildPaths) {
+                    if (selectedProj == &proj) {
+                        if (path == buildDir) {
+                            // we will not remove the current path that we inserted
+                            continue;
+                        }
+                    } else {
+                        if (path == buildDir) {
+                            toDelete.insert(path);
+                            continue;
+                        }
                     }
-                } else {
-                    if (path == buildDir) {
+
+                    if (!ga::pathExists(path)) {
                         toDelete.insert(path);
-                        continue;
                     }
                 }
 
-                if (!ga::pathExists(path)) {
-                    toDelete.insert(path);
+                for (const std::string &path : toDelete) {
+                    proj.buildPaths.erase(path);
                 }
-            }
-
-            for (const std::string &path : toDelete) {
-                proj.buildPaths.erase(path);
             }
         }
     }

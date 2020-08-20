@@ -30,6 +30,9 @@ bool operator!=(const JProject &lhs, const JProject &rhs);
 bool operator==(const JConfig &lhs, const JConfig &rhs);
 bool operator!=(const JConfig &lhs, const JConfig &rhs);
 
+std::ostream &operator<<(std::ostream &os, const JProject &in);
+std::ostream &operator<<(std::ostream &os, const JConfig &in);
+
 std::string serialize(const JConfig &in);
 JConfig deserialize(const std::string &in);
 

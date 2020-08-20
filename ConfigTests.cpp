@@ -27,6 +27,7 @@ JConfig ConfigTests::createConfig(bool includeStar) {
         }
         p.path = "/home/testuser/project2";
         p.sdkPath = "/home/testuser/sdks/v43";
+        p.buildPaths.insert("/home/testuser/buildDir2");
         expected.projects.push_back(p);
     }
     return expected;
@@ -81,6 +82,24 @@ TEST_F(ConfigTests, SelectProject0) {
     }
 }
 
+TEST_F(ConfigTests, SelectProject2) {
+    JConfig config = createConfig();
+    JProject expectedProject = config.projects[2];
+    expectedProject.cmdEnvironment.insert("E1=1");
+    expectedProject.cmdEnvironment.insert("E2=2");
+    expectedProject.cmdReplacement.insert({"xecho", {"/usr/bin/echo", "/home/testuser/sdks/v43"}});
+    expectedProject.cmdReplacement["xcmake"][0] = "/home/testuser/sdks/v43/cmake";
+
+    const std::vector<std::string> buildOrProjPaths{"/home/testuser/project2/somedir",
+                                                    "/home/testuser/buildDir2/somedir", "/home/testuser/buildDir2"};
+    for (const std::string &path : buildOrProjPaths) {
+        JProject actualProject;
+        ASSERT_TRUE(selectProject(config, path, actualProject));
+        ASSERT_EQ("/home/testuser/project2", actualProject.path);
+        ASSERT_EQ(expectedProject, actualProject);
+    }
+}
+
 TEST_F(ConfigTests, SelectProjectStar) {
     JConfig config = createConfig();
     JProject expectedProject = config.projects[1];
@@ -107,12 +126,16 @@ TEST_F(ConfigTests, SelectNoProject) {
 
 TEST_F(ConfigTests, UpdateProject2) {
     JConfig expected = createConfig(false);
-    expected.projects[1].buildPaths.insert("/home/testuser/buildDir2");
     JConfig actual = createConfig(false);
-    actual.projects[0].buildPaths.insert("/home/testuser/buildDir2");
 
-    ASSERT_TRUE(updateProject("/home/testuser/project2", "/home/testuser/buildDir2", actual));
+    ASSERT_FALSE(updateProject("/home/testuser/project2", "/home/testuser/buildDir2", actual));
     ASSERT_EQ(expected, actual);
+
+    actual.projects[0].buildPaths.insert("/home/testuser/buildDir3");
+    ASSERT_TRUE(updateProject("/home/testuser/project2/", "/home/testuser/buildDir3", actual));
+
+    actual.projects[0].buildPaths.insert("/home/testuser/buildDir4/");
+    ASSERT_TRUE(updateProject("/home/testuser/project2", "/home/testuser/buildDir4/", actual));
 }
 
 TEST_F(ConfigTests, UpdateProjectInexistent) {

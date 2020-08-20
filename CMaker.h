@@ -27,10 +27,6 @@ struct ExecutionPlan {
     std::vector<std::string> extraAddDirectory;
     std::set<std::string> gccClangFixes;
 
-    std::string virtualFolderPrefix;
-    std::string oldSdkPrefix;
-    std::string oldVirtualFolderPrefix;
-
     std::vector<std::string> output;
 };
 

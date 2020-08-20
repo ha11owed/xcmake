@@ -137,6 +137,22 @@ bool operator!=(const JProject &lhs, const JProject &rhs) { return !(lhs == rhs)
 
 bool operator!=(const JConfig &lhs, const JConfig &rhs) { return !(lhs == rhs); }
 
+std::ostream &operator<<(std::ostream &os, const JProject &in) {
+    nlohmann::json jObj;
+    writeJProject(in, jObj);
+    std::string str = jObj.dump();
+    os << str;
+    return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const JConfig &in) {
+    nlohmann::json jObj;
+    writeJConfig(in, jObj);
+    std::string str = jObj.dump();
+    os << str;
+    return os;
+}
+
 std::string serialize(const JConfig &in) {
     nlohmann::json jObj;
     writeJConfig(in, jObj);
@@ -266,7 +282,7 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
 bool updateProject(const std::string &projectDir, const std::string &buildDir, JConfig &inOut) {
     JProject *selectedProj = nullptr;
     for (JProject &proj : inOut.projects) {
-        if (proj.path == projectDir) {
+        if (projectDir.find(proj.path) == 0) {
             selectedProj = &proj;
             break;
         }

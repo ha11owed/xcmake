@@ -33,8 +33,6 @@ struct ExecutionPlan {
 /// @brief Runs the specified command and patches the cbp file.
 class CMaker {
   public:
-    using WriteFileCb = std::function<void(const std::string &filePath, const std::string &content)>;
-
     CMaker();
     ~CMaker();
 
@@ -43,10 +41,6 @@ class CMaker {
 
     /// @brief get the directory containing the executable.
     std::string getModuleDir() const;
-
-    /// @brief callback for writing the CBP file.
-    /// It will override the default action of overriding the original file.
-    void writeCbp(WriteFileCb writeFileCb);
 
     /// @brief initialize cmaker
     int init(const CmdLineArgs &cmdLineArgs);

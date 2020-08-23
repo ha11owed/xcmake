@@ -23,7 +23,7 @@ struct CbpPatchContext {
     std::string oldVirtualFolderPrefix;
 };
 
-enum class PatchResult { Changed, Unchanged, Error };
+enum class PatchResult { Changed, Unchanged, DifferentSDK, Error };
 
 const char *asString(PatchResult value);
 

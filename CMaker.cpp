@@ -122,12 +122,8 @@ inline bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectD
 }
 
 struct CMaker::Impl {
-    using WriteFileCb = std::function<void(const std::string &filePath, const std::string &content)>;
-
     CmdLineArgs cmdLineArgs;
     ExecutionPlan executionPlan;
-
-    WriteFileCb writeFileCb;
 
     std::string getModuleDir() const {
         char buffer[1024 * 64];
@@ -140,8 +136,6 @@ struct CMaker::Impl {
         }
         return dir;
     }
-
-    void writeCbp(WriteFileCb cb) { writeFileCb = cb; }
 
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
     /// @return true if the CBPs should be patched and the parameters have been gathered.
@@ -217,19 +211,17 @@ struct CMaker::Impl {
             executionPlan.output.push_back(filePath + " PatchResult: " + asString(patchResult));
 
             switch (patchResult) {
-            case PatchResult::Changed:
-                if (!writeFileCb) {
-                    std::string outFile = filePath + ".tmp";
-                    std::string bakFile = filePath + ".bak";
-                    context.inOutXml.SaveFile(outFile.c_str());
-                    if (!ga::pathExists(bakFile)) {
-                        std::rename(filePath.c_str(), bakFile.c_str());
-                    }
-                    std::rename(outFile.c_str(), filePath.c_str());
+            case PatchResult::Changed: {
+                std::string outFile = filePath + ".tmp";
+                std::string bakFile = filePath + ".bak";
+                context.inOutXml.SaveFile(outFile.c_str());
+                if (!ga::pathExists(bakFile)) {
+                    std::rename(filePath.c_str(), bakFile.c_str());
                 }
-                break;
+                std::rename(outFile.c_str(), filePath.c_str());
+            } break;
             case PatchResult::Unchanged:
-                break;
+            case PatchResult::DifferentSDK:
             case PatchResult::Error:
                 break;
             }
@@ -447,12 +439,6 @@ int CMaker::patch() {
         r = _impl->step3patch();
     }
     return r;
-}
-
-void CMaker::writeCbp(WriteFileCb writeFileCb) {
-    if (_impl) {
-        _impl->writeCbp(writeFileCb);
-    }
 }
 
 } // namespace gatools

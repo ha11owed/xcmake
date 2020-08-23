@@ -13,6 +13,8 @@ const char *asString(PatchResult value) {
         return "Changed";
     case PatchResult::Unchanged:
         return "Unchanged";
+    case PatchResult::DifferentSDK:
+        return "DifferentSDK";
     case PatchResult::Error:
         return "Error";
     }
@@ -97,22 +99,22 @@ void addPrefixToVirtualFolder(const CbpPatchContext &executionPlan, std::string 
         }
 
         std::string virtualPath(part.substr(CMakeFiles_BS.size()));
-        if (executionPlan.oldVirtualFolderPrefix.size() > 0 &&
-            virtualPath.find(executionPlan.oldVirtualFolderPrefix) == 0) {
-            // replace the old virtual folder prefix with the new one
-            virtualPath = virtualPath.substr(executionPlan.oldVirtualFolderPrefix.size());
-            virtualPath = executionPlan.virtualFolderPrefix + virtualPath;
+
+        // check if the path is inside the source dir
+        std::string simpleVirtualPath = ga::combine(executionPlan.buildDir, virtualPath);
+        cleanPathSeparators(simpleVirtualPath, '/');
+        ga::getSimplePath(simpleVirtualPath, simpleVirtualPath);
+        if (simpleVirtualPath.find("/usr/") == 0) {
+            // virtual must be put in the SDK
+            simpleVirtualPath = ga::combine(executionPlan.virtualFolderPrefix, simpleVirtualPath);
+            cleanPathSeparators(simpleVirtualPath, '\\');
+            virtualPath = simpleVirtualPath;
         } else {
-            // check if the path is inside the source dir
-            std::string simpleVirtualPath = ga::combine(executionPlan.buildDir, part);
-            cleanPathSeparators(simpleVirtualPath, '/');
-            ga::getSimplePath(simpleVirtualPath, simpleVirtualPath);
-            if (simpleVirtualPath.find("/usr/") == 0) {
-                // virtual must be put in the SDK
-                simpleVirtualPath = ga::combine(executionPlan.virtualFolderPrefix, simpleVirtualPath);
-                cleanPathSeparators(simpleVirtualPath, '\\');
-                virtualPath = simpleVirtualPath;
-            }
+            ga::getSimplePath(virtualPath, virtualPath);
+        }
+
+        if (virtualPath.size() > 0 && !ga::isPathSeparator(virtualPath.back())) {
+            virtualPath += "\\";
         }
 
         parts[i] = CMakeFiles_BS + virtualPath;
@@ -281,6 +283,15 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
         }
 
         enqueueWithSiblings(curr->FirstChildElement(), curr, q);
+
+        if (hasNewNote) {
+            if (context.oldVirtualFolderPrefix == context.virtualFolderPrefix) {
+                patchResult = PatchResult::Unchanged;
+            } else {
+                patchResult = PatchResult::DifferentSDK;
+            }
+            break;
+        }
 
         /// @todo we should actually store the old values in the note instead of just checking if the note exists.
         if (hasNewNote && name == "Compiler") {

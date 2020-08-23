@@ -48,7 +48,7 @@ TEST_F(CbpPatcherTests, VirtualFoldersChange) {
 
     context.virtualFolderPrefix = "..\\..\\sdk\\v43";
     std::string value = "CMake Files\\..\\..\\..\\..\\usr\\include\\someotherlib";
-    std::string expected = "CMake Files\\..\\..\\sdk\\v43\\usr\\include\\someotherlib";
+    std::string expected = "CMake Files\\..\\..\\sdk\\v43\\usr\\include\\someotherlib\\";
     addPrefixToVirtualFolder(context, value);
     ASSERT_EQ(expected, value);
 }

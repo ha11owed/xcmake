@@ -9,7 +9,7 @@
         <Option title="testproj"/>
         <Option makefile_is_custom="1"/>
         <Option compiler="gcc"/>
-        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\..\sdks\v42\usr\include\someotherlib"/>
+        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\..\sdks\v42\usr\include\someotherlib\"/>
         <Build>
             <Target title="all">
                 <Option working_dir="/home/testuser/build-testproj-Desktop-Debug"/>
@@ -17,7 +17,7 @@
                 <Compiler>
                     <Add option="-gcc2"/>
                     <Add option="-gcc1"/>
-                    <Add directory="/home/testuser/sdks/v42/usr/include/somelib"/>
+                    <Add directory="/home/testuser/sdks/v42/usr/include/somelib/"/>
                     <Add directory="/extra1"/>
                     <Add directory="/extra2"/>
                 </Compiler>
@@ -30,7 +30,7 @@
             </Target>
         </Build>
         <Unit filename="/home/testuser/testproj/CMakeLists.txt">
-            <Option virtualFolder="CMake Files\;CMake Files\..\..\sdks\v42\usr\include\lib2"/>
+            <Option virtualFolder="CMake Files\;CMake Files\..\..\sdks\v42\usr\include\lib2\"/>
         </Unit>
     </Project>
 </CodeBlocks_project_file>

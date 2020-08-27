@@ -2,35 +2,45 @@ cmake_minimum_required(VERSION 3.1)
 
 project(XCMake)
 
-add_executable(${PROJECT_NAME} "main.cpp"
+set(XCMAKE_SOURCES
     "Config.h" "Config.cpp"
     "CMaker.h" "CMaker.cpp"
     "CbpPatcher.h" "CbpPatcher.cpp"
     # Lib dependencies
     "file_system.h" "file_system.cpp"
-    "whereami.h" "whereami.c"
-    "tinyxml2.h" "tinyxml2.cpp"
-    "loguru.hpp" "loguru.cpp"
+    "tinyxml2.h" "tinyxml2.cpp")
+
+set(XCMAKELIB ${PROJECT_NAME}_Lib)
+
+add_library(${XCMAKELIB} STATIC ${XCMAKE_SOURCES})
+
+add_executable(${PROJECT_NAME}
+    ${XCMAKE_SOURCES}
+    "main.cpp")
+
+add_executable(${PROJECT_NAME}_Tests
+    ${XCMAKE_SOURCES}
+    "tests/runtests.cpp"
     # Tests
-    "CbpPatcherTests.cpp"
-    "CMakerTests.cpp"
-    "ConfigTests.cpp"
+    "tests/CbpPatcherTests.cpp"
+    "tests/CMakerTests.cpp"
+    "tests/ConfigTests.cpp"
     # GTest
-    "gtest/gtest.h"
-    "gtest/gtest-all.cc")
+    "tests/gtest/gtest.h"
+    "tests/gtest/gtest-all.cc")
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${XCMAKELIB})
+target_link_libraries(${PROJECT_NAME}_Tests PRIVATE ${XCMAKELIB})
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-target_link_libraries(${PROJECT_NAME} Threads::Threads)
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_link_libraries(${XCMAKELIB} Threads::Threads)
+target_include_directories(${XCMAKELIB} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tests>)
 
 if(CMAKE_DL_LIBS)
-    target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS})
+    target_link_libraries(${XCMAKELIB} ${CMAKE_DL_LIBS})
 endif()
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE CMAKER_WITH_LOGGER)
-target_compile_definitions(${PROJECT_NAME} PRIVATE CMAKER_WITH_UNIT_TESTS)
-
-file(COPY "tests/testproject_input.cbp" "tests/testproject_output.cbp.xml" "tests/cmaker.json" DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY "tests/data/testproject_input.cbp" "tests/data/testproject_output.cbp.xml" "tests/data/cmaker.json" DESTINATION ${CMAKE_BINARY_DIR})

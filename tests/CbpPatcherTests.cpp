@@ -1,31 +1,29 @@
-#ifdef CMAKER_WITH_UNIT_TESTS
-#include "CbpPatcher.h"
+#include <CbpPatcher.h>
 
-#include "file_system.h"
-#include "loguru.hpp"
-#include "gtest/gtest.h"
+#include <file_system.h>
+#include <gtest/gtest.h>
 
 namespace gatools {
 
 class CbpPatcherTests : public ::testing::Test {
   public:
-    CbpPatcherTests() {
-        loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-
-        context.cbpFilePath = "/home/testuser/build-proj/proj.cbp";
-        context.buildDir = "/home/testuser/build-proj";
-        context.sdkDir = "/home/testuser/sdks/v42";
-        context.gccClangFixes.insert("-gcc1");
-        context.gccClangFixes.insert("-gcc2");
-        context.extraAddDirectory.push_back("/extra1");
-        context.extraAddDirectory.push_back("/extra2");
-    }
+    CbpPatcherTests();
 
     CbpPatchContext context;
 };
 
-TEST_F(CbpPatcherTests, CompilerAddDirectory) {
+CbpPatcherTests::CbpPatcherTests() {
+    context.cbpFilePath = "/tmp/xcmake/test/build/proj.cbp";
+    context.buildDir = "/tmp/xcmake/test/build";
+    context.projectDir = "/tmp/xcmake/test/project";
+    context.sdkDir = "/tmp/xcmake/test/sdks/v42";
+    context.gccClangFixes.insert("-gcc1");
+    context.gccClangFixes.insert("-gcc2");
+    context.extraAddDirectory.push_back("/extra1");
+    context.extraAddDirectory.push_back("/extra2");
+}
 
+TEST_F(CbpPatcherTests, CompilerAddDirectory) {
     tinyxml2::XMLDocument doc;
     XmlElemPtr elem = doc.NewElement("Add");
     elem->SetAttribute("directory", "/usr/test/include");
@@ -37,15 +35,13 @@ TEST_F(CbpPatcherTests, CompilerAddDirectory) {
 }
 
 TEST_F(CbpPatcherTests, VirtualFoldersNoChange) {
-
-    std::string value = "CMake Files\\;CMake Files\\..\\;CMake Files\\..\\..\\;CMake Files\\..\\..\\..\\";
-    std::string expected = "CMake Files\\;CMake Files\\..\\;CMake Files\\..\\..\\;CMake Files\\..\\..\\..\\";
+    std::string value = "CMake Files\\;CMake Files\\..\\;CMake Files\\..\\..\\;CMake Files\\..\\..\\somedir\\";
+    std::string expected = "CMake Files\\;CMake Files\\..\\;CMake Files\\..\\..\\;CMake Files\\..\\..\\somedir\\";
     addPrefixToVirtualFolder(context, value);
     ASSERT_EQ(expected, value);
 }
 
 TEST_F(CbpPatcherTests, VirtualFoldersChange) {
-
     context.virtualFolderPrefix = "..\\..\\sdk\\v43";
     std::string value = "CMake Files\\..\\..\\..\\..\\usr\\include\\someotherlib";
     std::string expected = "CMake Files\\..\\..\\sdk\\v43\\usr\\include\\someotherlib\\";
@@ -73,4 +69,3 @@ TEST_F(CbpPatcherTests, PatchCBPs) {
 }
 
 } // namespace gatools
-#endif

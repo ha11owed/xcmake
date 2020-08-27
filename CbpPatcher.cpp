@@ -1,7 +1,5 @@
 #include "CbpPatcher.h"
-
 #include "file_system.h"
-#include "loguru.hpp"
 
 #include <sstream>
 
@@ -21,6 +19,11 @@ const char *asString(PatchResult value) {
         return "Error";
     }
     return "Unknown PatchResult";
+}
+
+std::ostream &operator<<(std::ostream &os, PatchResult in) {
+    os << asString(in);
+    return os;
 }
 
 inline void split(const std::string &input, const std::string &separator, std::vector<std::string> &parts) {
@@ -76,7 +79,7 @@ void addPrefix(XmlElemPtr elem, const char *attrName, const std::string &prefix)
     }
 
     size_t idx = value.find("/usr/");
-    if (idx == std::string::npos) {
+    if (idx == std::string::npos && value != "/usr") {
         return;
     }
 
@@ -101,12 +104,15 @@ void addPrefixToVirtualFolder(const CbpPatchContext &executionPlan, std::string 
         }
 
         std::string virtualPath(part.substr(CMakeFiles_BS.size()));
+        if (virtualPath.empty()) {
+            continue;
+        }
 
         // check if the path is inside the source dir
         std::string simpleVirtualPath = ga::combine(executionPlan.buildDir, virtualPath);
         cleanPathSeparators(simpleVirtualPath, '/');
         ga::getSimplePath(simpleVirtualPath, simpleVirtualPath);
-        if (simpleVirtualPath.find("/usr/") == 0) {
+        if (simpleVirtualPath.empty() || (simpleVirtualPath.find("/usr/") == 0) || (simpleVirtualPath == "/usr")) {
             // virtual must be put in the SDK
             simpleVirtualPath = ga::combine(executionPlan.virtualFolderPrefix, simpleVirtualPath);
             cleanPathSeparators(simpleVirtualPath, '\\');
@@ -221,7 +227,6 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
     // will contain the relative path from the directory of the filePath to the sdk folder
     std::string virtualFolderPrefix;
     if (!ga::getRelativePath(context.projectDir, context.sdkDir, virtualFolderPrefix)) {
-        LOG_F(ERROR, "cannot get relative path: %s => %s", context.projectDir.c_str(), context.sdkDir.c_str());
         return patchResult;
     }
 

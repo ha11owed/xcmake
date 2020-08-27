@@ -28,6 +28,8 @@ enum class PatchResult { Changed, Unchanged, AlreadyPatched, DifferentSDK, Error
 
 const char *asString(PatchResult value);
 
+std::ostream &operator<<(std::ostream &os, PatchResult in);
+
 bool getAttribute(XmlElemPtr elem, const char *attrName, std::string &outValue);
 
 void addPrefix(XmlElemPtr elem, const char *attrName, const std::string &prefix);

@@ -1,10 +1,8 @@
-#ifdef CMAKER_WITH_UNIT_TESTS
-#include "CMaker.h"
+#include <CMaker.h>
 
-#include "Config.h"
-#include "file_system.h"
-#include "loguru.hpp"
-#include "gtest/gtest.h"
+#include <Config.h>
+#include <file_system.h>
+#include <gtest/gtest.h>
 
 namespace gatools {
 
@@ -28,8 +26,6 @@ class CMakerTests : public ::testing::Test {
 };
 
 void CMakerTests::SetUp() {
-    loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-
     if (g_cmakerJson.empty()) {
         ga::readFile("cmaker.json", g_cmakerJson);
     }
@@ -144,10 +140,31 @@ TEST_F(CMakerTests, CMAKE_BASH) {
     }
 }
 
+TEST_F(CMakerTests, CMAKE_CP_TO_BUILD) {
+    createTestDir();
+
+    std::string sdkDir = ga::combine(_tmpDir, "sdks/v42");
+
+    CmdLineArgs cmdLineArgs;
+    cmdLineArgs.args = {"cmakeCPtoBuild", _projectDir, "'-GCodeBlocks - Unix Makefiles'"};
+    cmdLineArgs.pwd = _buildDir;
+    cmdLineArgs.home = _tmpDir;
+    int r = cmaker.init(cmdLineArgs);
+    ASSERT_EQ(0, r);
+    r = cmaker.run();
+    ASSERT_EQ(0, r);
+    r = cmaker.patch();
+    ASSERT_EQ(0, r);
+
+    std::string actualCbp;
+    ga::readFile(_cbpFilePath, actualCbp);
+    ASSERT_EQ(actualCbp, g_expectedCbp);
+}
+
 TEST_F(CMakerTests, ECHO) {
     CmdLineArgs cmdLineArgs;
     cmdLineArgs.args = {"xecho", "test"};
-    cmdLineArgs.pwd = cmaker.getModuleDir();
+    cmdLineArgs.pwd = "/home";
     cmdLineArgs.home = cmdLineArgs.pwd;
     int r = cmaker.init(cmdLineArgs);
     ASSERT_EQ(0, r);
@@ -173,4 +190,3 @@ TEST_F(CMakerTests, ECHO) {
 }
 
 } // namespace gatools
-#endif

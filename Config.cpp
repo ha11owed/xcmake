@@ -2,6 +2,7 @@
 
 #include "file_system.h"
 #include "json.hpp"
+#include <iomanip>
 
 namespace gatools {
 
@@ -318,6 +319,55 @@ bool updateProject(const std::string &projectDir, const std::string &buildDir, J
     }
 
     return updated;
+}
+
+inline nlohmann::json to_json(const CmdLineArgs &in) {
+    nlohmann::json jObj;
+    jObj["args"] = in.args;
+    jObj["env"] = in.env;
+    jObj["pwd"] = in.pwd;
+    jObj["home"] = in.home;
+    return jObj;
+}
+
+inline nlohmann::json to_json(const ExecutionPlan &in) {
+    nlohmann::json jObj;
+    jObj["exePath"] = in.exePath;
+    jObj["cmd"] = to_json(in.cmdLineArgs);
+
+    jObj["configFilePath"] = in.configFilePath;
+    jObj["cbpSearchPaths"] = in.cbpSearchPaths;
+    jObj["projectDir"] = in.projectDir;
+    jObj["buildDir"] = in.buildDir;
+    jObj["sdkDir"] = in.sdkDir;
+
+    jObj["extraAddDirectory"] = in.extraAddDirectory;
+    jObj["gccClangFixes"] = in.gccClangFixes;
+    jObj["output"] = in.output;
+    jObj["log"] = in.log;
+    return jObj;
+}
+
+std::ostream &operator<<(std::ostream &os, const CmdLineArgs &in) {
+    os << to_json(in);
+    return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const ExecutionPlan &in) {
+    os << std::setw(2) << to_json(in);
+    return os;
+}
+
+std::string serialize(const ExecutionPlan &in) {
+    nlohmann::json jObj(to_json(in));
+    return jObj.dump(2);
+}
+
+std::string serialize(const ExecutionPlan *in) {
+    if (in == nullptr) {
+        return "";
+    }
+    return serialize(*in);
 }
 
 } // namespace gatools

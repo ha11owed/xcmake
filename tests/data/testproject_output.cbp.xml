@@ -9,7 +9,7 @@
         <Option title="testproj"/>
         <Option makefile_is_custom="1"/>
         <Option compiler="gcc"/>
-        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\sdks\v42\usr\include\someotherlib\"/>
+        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\sdks\v42\usr\include\someotherlib\;CMake Files\..\sdks\v42\usr\;CMake Files\..\sdks\v42\"/>
         <Build>
             <Target title="all">
                 <Option working_dir="/tmp/xcmake/test/build"/>

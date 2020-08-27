@@ -1,6 +1,5 @@
-#ifdef CMAKER_WITH_UNIT_TESTS
-#include "Config.h"
-#include "gtest/gtest.h"
+#include <Config.h>
+#include <gtest/gtest.h>
 
 namespace gatools {
 
@@ -156,4 +155,3 @@ TEST_F(ConfigTests, UpdateProjectInexistent) {
 }
 
 } // namespace gatools
-#endif

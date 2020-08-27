@@ -43,4 +43,33 @@ bool selectProject(const JConfig &in, const std::string &projectOrBuildDir, JPro
 /// @brief will check if the build directories actually exist in the file system when updating.
 bool updateProject(const std::string &projectDir, const std::string &buildDir, JConfig &inOut);
 
+struct CmdLineArgs {
+    std::vector<std::string> args;
+    std::vector<std::string> env;
+    std::string home;
+    std::string pwd;
+};
+
+struct ExecutionPlan {
+    std::string exePath;
+    CmdLineArgs cmdLineArgs;
+
+    std::string configFilePath;
+    std::vector<std::string> cbpSearchPaths;
+    std::string projectDir;
+    std::string buildDir;
+    std::string sdkDir;
+    std::vector<std::string> extraAddDirectory;
+    std::set<std::string> gccClangFixes;
+
+    std::vector<std::string> output;
+    std::vector<std::string> log;
+};
+
+std::ostream &operator<<(std::ostream &os, const CmdLineArgs &in);
+std::ostream &operator<<(std::ostream &os, const ExecutionPlan &in);
+
+std::string serialize(const ExecutionPlan &in);
+std::string serialize(const ExecutionPlan *in);
+
 } // namespace gatools

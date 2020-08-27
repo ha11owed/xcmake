@@ -2,8 +2,6 @@
 
 #include "CbpPatcher.h"
 #include "file_system.h"
-#include "loguru.hpp"
-#include "whereami.h"
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -13,37 +11,6 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
-
-#define LOG_STR(header, v) LOG_F(INFO, header " %s", (v).c_str())
-#define LOG_BOOL(header, v) LOG_F(INFO, header " %s", (v) ? "true" : "false")
-#define LOG_STR_ARRAY(header, v)                                                                                       \
-    do {                                                                                                               \
-        for (size_t i = 0; i < (v).size(); i++) {                                                                      \
-            LOG_F(INFO, header "[%lu]: %s", i, (v)[i].c_str());                                                        \
-        }                                                                                                              \
-    } while (false)
-#define LOG_CmdLineArgs(header, cmdLineArgs)                                                                           \
-    do {                                                                                                               \
-        LOG_STR_ARRAY(header " arg", (cmdLineArgs).args);                                                              \
-        LOG_STR_ARRAY(header " env", (cmdLineArgs).env);                                                               \
-        LOG_STR(header " pwd: ", (cmdLineArgs).pwd);                                                                   \
-        LOG_STR(header " home:", (cmdLineArgs).home);                                                                  \
-    } while (false)
-
-#define LOG_ExecutionPlan(header, executionPlan)                                                                       \
-    do {                                                                                                               \
-        LOG_STR(header " exePath: ", (executionPlan).exePath);                                                         \
-        LOG_CmdLineArgs(header " cmdLineArgs", (executionPlan).cmdLineArgs);                                           \
-                                                                                                                       \
-        LOG_STR(header " configFilePath: ", (executionPlan).configFilePath);                                           \
-        LOG_STR_ARRAY(header " cbpSearchPaths", (executionPlan).cbpSearchPaths);                                       \
-        LOG_STR(header " projectDir: ", (executionPlan).projectDir);                                                   \
-        LOG_STR(header " buildDir: ", (executionPlan).buildDir);                                                       \
-        LOG_STR(header " sdkDir: ", (executionPlan).sdkDir);                                                           \
-                                                                                                                       \
-        LOG_STR_ARRAY(header " extraAddDirectory", (executionPlan).extraAddDirectory);                                 \
-        LOG_STR_ARRAY(header " output", (executionPlan).output);                                                       \
-    } while (false)
 
 namespace gatools {
 
@@ -93,7 +60,6 @@ std::vector<std::string> getConfigFilePaths(const ExecutionPlan &executionPlan) 
 /// @brief gather the parameters for patching the .cbp files to use a SDK.
 /// @return true if the CBPs should be patched and the parameters have been gathered.
 inline bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectDir, std::string &outBuildDir) {
-    LOG_F(INFO, "canPatchCBP");
     outProjectDir.clear();
     outBuildDir.clear();
 
@@ -109,44 +75,41 @@ inline bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectD
             outBuildDir = cmdLineArgs.pwd;
             ga::getSimplePath(outProjectDir, outProjectDir);
             ga::getSimplePath(outBuildDir, outBuildDir);
-            LOG_F(INFO, "projectDir: %s. buildDir: %s. patchCbp: %d", outProjectDir.c_str(), outBuildDir.c_str(),
-                  patchCbp);
-        } else {
-            LOG_F(INFO, "args[1]: %s. patchCbp: %d", cmdLineArgs.args[1].c_str(), patchCbp);
         }
-    } else {
-        LOG_F(INFO, "args.size() = %lu. patchCbp: %d", cmdLineArgs.args.size(), patchCbp);
     }
 
     return patchCbp;
 }
 
+#define LOG_F(x)                                                                                                       \
+    do {                                                                                                               \
+        std::stringstream ss;                                                                                          \
+        ss << x;                                                                                                       \
+        executionPlan.log.push_back(ss.str());                                                                         \
+    } while (false)
+
+#define OUT_F(x)                                                                                                       \
+    do {                                                                                                               \
+        std::stringstream ss;                                                                                          \
+        ss << x;                                                                                                       \
+        executionPlan.output.push_back(ss.str());                                                                      \
+        executionPlan.log.push_back(ss.str());                                                                         \
+    } while (false)
+
 struct CMaker::Impl {
     CmdLineArgs cmdLineArgs;
     ExecutionPlan executionPlan;
 
-    std::string getModuleDir() const {
-        char buffer[1024 * 64];
-        int dirLen;
-        int n = wai_getModulePath(buffer, sizeof(buffer), &dirLen);
-
-        std::string dir;
-        if (n > 0 && dirLen > 0) {
-            dir.append(buffer, static_cast<size_t>(dirLen));
-        }
-        return dir;
-    }
-
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
     /// @return true if the CBPs should be patched and the parameters have been gathered.
     bool readConfiguration(const std::string &projectDir, const std::string &buildDir, JProject &outProject) {
-        LOG_F(INFO, "preparePatchCBPs");
+        LOG_F("preparePatchCBPs");
         outProject = JProject();
 
         executionPlan.buildDir = cmdLineArgs.pwd;
         std::vector<std::string> configFilePaths = getConfigFilePaths(executionPlan);
         for (const std::string &configFilePath : configFilePaths) {
-            LOG_F(INFO, "configFilePath: %s", configFilePath.c_str());
+            LOG_F("configFilePath: " << configFilePath);
         }
 
         JConfig config;
@@ -154,7 +117,7 @@ struct CMaker::Impl {
         for (const std::string &configFilePath : configFilePaths) {
             std::string jStr;
             if (!ga::readFile(configFilePath, jStr)) {
-                LOG_F(ERROR, "%s could not be read", configFilePath.c_str());
+                LOG_F(configFilePath << " could not be read");
                 continue;
             }
 
@@ -171,9 +134,9 @@ struct CMaker::Impl {
                 projectOrBuildDir = buildDir;
             }
             if (selectProject(config, projectOrBuildDir, outProject)) {
-                LOG_F(INFO, "Selected project: %s, sdk: %s", outProject.path.c_str(), outProject.sdkPath.c_str());
+                LOG_F("Selected project: " << outProject.path << ", sdk: " << outProject.sdkPath);
                 if (updateProject(projectDir, buildDir, config)) {
-                    LOG_F(INFO, "Update project: %s with buildDir: %s", projectDir.c_str(), buildDir.c_str());
+                    LOG_F("Update project: " << projectDir << " with buildDir: " << buildDir);
                     doUpdate = true;
                 }
             }
@@ -181,7 +144,7 @@ struct CMaker::Impl {
 
         if (doUpdate) {
             std::string jStr = serialize(config);
-            LOG_F(INFO, "Write %s to: %s", jStr.c_str(), selectedConfigFilePath.c_str());
+            LOG_F("Write " << jStr << " to: " << selectedConfigFilePath);
             ga::writeFile(selectedConfigFilePath, jStr);
         }
 
@@ -202,38 +165,34 @@ struct CMaker::Impl {
 
             tinyxml2::XMLError error = context.inOutXml.LoadFile(filePath.c_str());
             if (error != tinyxml2::XML_SUCCESS) {
-                LOG_F(ERROR, "%s cannot be loaded", filePath.c_str());
+                LOG_F(filePath << " cannot be loaded");
                 continue;
             }
 
             std::string modified;
             PatchResult patchResult = patchCBP(context, &modified);
 
-            LOG_F(INFO, "patchCBPs filePath: %s PatchResult: %s", filePath.c_str(), asString(patchResult));
-            executionPlan.output.push_back(filePath + " PatchResult: " + asString(patchResult));
+            LOG_F(filePath + " PatchResult: " + asString(patchResult));
 
             switch (patchResult) {
             case PatchResult::Changed: {
                 std::string bakFile = filePath + ".bak";
                 if (!ga::pathExists(bakFile)) {
-                    std::rename(filePath.c_str(), bakFile.c_str());
+                    int bk = std::rename(filePath.c_str(), bakFile.c_str());
+                    LOG_F("backup: " << bakFile << " (rename=" << bk << ")");
                 }
                 bool ok = ga::writeFile(filePath, modified);
-                LOG_F(INFO, "writeFile %s (ok=%d)", filePath.c_str(), ok);
+                LOG_F("writeFile: " << filePath << " (ok=" << ok << ")");
             } break;
-            case PatchResult::Unchanged:
-            case PatchResult::DifferentSDK:
-            case PatchResult::Error:
+            default:
                 break;
             }
         }
 
         if (!cbpFilePaths.empty()) {
-            LOG_F(INFO, "patchCBPs SDK:    %s", executionPlan.sdkDir.c_str());
-            LOG_F(INFO, "patchCBPs config: %s", executionPlan.configFilePath.c_str());
-            executionPlan.output.push_back("SDK:    " + executionPlan.sdkDir);
-            executionPlan.output.push_back("Config: " + executionPlan.configFilePath);
-            executionPlan.output.push_back("Finished patching...\n");
+            OUT_F("SDK:    " << executionPlan.sdkDir);
+            OUT_F("Config: " << executionPlan.configFilePath);
+            OUT_F("Finished patching...\n");
         }
     }
 
@@ -241,7 +200,7 @@ struct CMaker::Impl {
 
     int step1init(const CmdLineArgs &cmdLineArgs) {
         // Log the input parameters
-        LOG_CmdLineArgs("init", cmdLineArgs);
+        LOG_F("step1 init: " << cmdLineArgs);
 
         this->cmdLineArgs = cmdLineArgs;
         executionPlan = ExecutionPlan();
@@ -249,13 +208,12 @@ struct CMaker::Impl {
         bool patchCbp = canPatchCBP(cmdLineArgs, executionPlan.projectDir, executionPlan.buildDir);
         JProject project;
         bool hasConfig = readConfiguration(executionPlan.projectDir, executionPlan.buildDir, project);
-        LOG_F(INFO, "init patchCbp: %d", patchCbp);
-        LOG_F(INFO, "init hasConfig: %d", hasConfig);
+        LOG_F("init patchCbp: " << patchCbp << " hasConfig: " << hasConfig);
 
         int retCode = -1;
         for (;;) {
             if (cmdLineArgs.args.size() == 0) {
-                LOG_F(ERROR, "init empty args");
+                LOG_F("init empty args");
                 break;
             }
             if (!hasConfig) {
@@ -267,7 +225,7 @@ struct CMaker::Impl {
                 replIt = project.cmdReplacement.find(ga::getFilename(cmdLineArgs.args[0]));
             }
             if (replIt == project.cmdReplacement.end()) {
-                LOG_F(ERROR, "init cmdReplacement for: %s does not exist", cmdLineArgs.args[0].c_str());
+                LOG_F("cmdReplacement for: " << cmdLineArgs.args[0] << " does not exist");
                 break;
             }
 
@@ -295,13 +253,12 @@ struct CMaker::Impl {
             // output a message when running cmake to prevent qtcreator from stating the cmake server.
             if (patchCbp) {
                 executionPlan.cbpSearchPaths.push_back(executionPlan.buildDir);
-                executionPlan.output.push_back("All *.cbp in " + executionPlan.buildDir + " will use " +
-                                               executionPlan.sdkDir);
+                OUT_F("All *.cbp in " << executionPlan.buildDir << " will use " << executionPlan.sdkDir);
             } else if (ga::getFilename(executionPlan.cmdLineArgs.args[0]).find("cmake") != std::string::npos) {
-                executionPlan.output.push_back("Running xcmake...");
+                OUT_F("Running xcmake...");
             }
 
-            LOG_ExecutionPlan("init.ep", executionPlan);
+            LOG_F("executionPlan: " << executionPlan);
             retCode = 0;
             break;
         }
@@ -313,55 +270,48 @@ struct CMaker::Impl {
         executionPlan.output.clear();
         int retCode = -1;
         if (!hasExecutionPlan()) {
-            executionPlan.output.push_back("no execution plan");
+            LOG_F("no execution plan");
             return retCode;
         }
 
-        executionPlan.output.push_back("execute: " + executionPlan.exePath);
+        LOG_F("execute: " << executionPlan.exePath);
 
-        pid_t oldppid = getppid();
+        fflush(stdout);
+        fflush(stderr);
+
         pid_t pid = fork();
         switch (pid) {
         case -1:
-            executionPlan.output.push_back("cannot fork");
+            LOG_F("cannot fork");
             break;
         case 0:
             // Child process
-            {
-                auto tp1 = std::chrono::steady_clock::now();
-                while (true) {
-                    pid_t ppid = getppid();
-                    if (ppid == oldppid) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    } else {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                        executionPlan.output.push_back("getppid matches the parent before the fork" +
-                                                       std::to_string(ppid));
-                        retCode = 0;
-                        break;
-                    }
-
-                    auto tp2 = std::chrono::steady_clock::now();
-                    auto delta = std::chrono::duration_cast<std::chrono::seconds>(tp2 - tp1);
-                    if (delta > std::chrono::seconds(600)) {
-                        executionPlan.output.push_back("timeout after " + std::to_string(delta.count()) + " seconds");
-                        retCode = -3;
-                        break;
-                    }
-                }
-            }
-            break;
-        default:
-            // Parent process
             {
                 std::vector<const char *> cmdRaw = vecToRaw(executionPlan.cmdLineArgs.args);
                 std::vector<const char *> envRaw = vecToRaw(executionPlan.cmdLineArgs.env);
 
                 retCode = execvpe(executionPlan.exePath.c_str(), const_cast<char *const *>(cmdRaw.data()),
                                   const_cast<char *const *>(envRaw.data()));
+                exit(retCode);
+            }
+            break;
+        default:
+            // Parent process
+            {
+                int status;
+                int r = waitpid(pid, &status, 0);
+                if (r == pid) {
+                    retCode = 0;
+                }
+
+                LOG_F("waitpid(" << pid << ") returned " << r << ". retCode: " << retCode);
             }
             break;
         }
+
+        fflush(stdout);
+        fflush(stderr);
+
         return retCode;
     }
 
@@ -406,14 +356,6 @@ const ExecutionPlan *CMaker::getExecutionPlan() const {
     const ExecutionPlan *r = nullptr;
     if (_impl) {
         r = &(_impl->executionPlan);
-    }
-    return r;
-}
-
-std::string CMaker::getModuleDir() const {
-    std::string r;
-    if (_impl) {
-        r = _impl->getModuleDir();
     }
     return r;
 }

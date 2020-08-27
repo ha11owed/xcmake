@@ -2,6 +2,7 @@
     "cmdEnvironment": ["E1=1"],
     "cmdReplacement": {
         "xcmake": [ "${sdkPath}usr/bin/cmaker", "${sdkPath}usr/bin/cmake" ],
+        "cmakeCPtoBuild": [ "cp", "cp", "testproject_input.cbp", "/tmp/xcmake/test/build/proj42.cbp" ],
         "xbash" : [ "${sdkPath}usr/bin/basher", "${sdkPath}usr/bin/bash"  ]
     },
     "gccClangFixes": [ "-gcc1", "-gcc2" ],

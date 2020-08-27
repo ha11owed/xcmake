@@ -1,23 +1,5 @@
-// Defines the entry point for the console application (either run unit tests or the app)
-
-#ifdef CMAKER_WITH_UNIT_TESTS
-#include "gtest/gtest.h"
-
-int RunAllTests(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
-
-int main(int argc, char **argv) {
-    // The program just runs all the tests.
-    return RunAllTests(argc, argv);
-}
-
-#else
-
 #include "CMaker.h"
 #include "file_system.h"
-#include "loguru.hpp"
 #include <pwd.h>
 #include <string>
 #include <unistd.h>
@@ -25,70 +7,20 @@ int main(int argc, char **argv) {
 
 using namespace gatools;
 
-inline void initlog(int argc, char **argv) {
-    loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-
-#ifdef CMAKER_WITH_LOGGER
-    int argcT = argc;
-    loguru::Options options;
-    options.verbosity_flag = nullptr;
-    options.main_thread_name = nullptr;
-    options.signals = loguru::SignalOptions::none();
-    loguru::init(argcT, argv, options);
-
-    // The log file path is decided on the first call.
-    // Children processes that do logging will use the name of the parent
-    static std::string logFilePath;
-    if (logFilePath.empty()) {
-        logFilePath = "/tmp/xcmake/";
-        if (argc >= 1) {
-            std::string fileName = ga::getFilename(argv[0]);
-            if (!fileName.empty()) {
-                logFilePath += fileName;
-                logFilePath += "_";
-            }
-        }
-
-        time_t rawtime;
-        struct tm *timeinfo;
-        char buffer[80];
-
-        time(&rawtime);
-        timeinfo = localtime(&rawtime);
-
-        strftime(buffer, sizeof(buffer), "%Y-%m-%d_%H%M%S", timeinfo);
-        logFilePath += buffer;
-        logFilePath += "_";
-        logFilePath += std::to_string(getpid());
-        logFilePath += ".log";
-    }
-    loguru::add_file(logFilePath.c_str(), loguru::Append, loguru::Verbosity_MAX);
-    LOG_F(INFO, "Starting to log from process: %d", getpid());
-#endif
-}
-
-inline void logOutput(const CMaker &cmaker) {
-    const ExecutionPlan *ep = cmaker.getExecutionPlan();
-    for (const std::string &line : ep->output) {
-        LOG_F(INFO, "out: %s", line.c_str());
-    }
-}
-
 inline void printOutput(const CMaker &cmaker) {
     const ExecutionPlan *ep = cmaker.getExecutionPlan();
     for (const std::string &line : ep->output) {
         printf("%s\n", line.c_str());
     }
-    fflush(stdout);
 }
 
 int main(int argc, char **argv) {
     int result = -1;
-    for (;;) {
-        initlog(argc, argv);
+    CmdLineArgs cmdLineArgs;
+    CMaker cmaker;
 
+    for (;;) {
         // CMD
-        CmdLineArgs cmdLineArgs;
         cmdLineArgs.args.resize(argc);
         for (int i = 0; i < argc; i++) {
             cmdLineArgs.args[i] = argv[i];
@@ -117,33 +49,34 @@ int main(int argc, char **argv) {
         }
 
         // Initialize
-        CMaker cmaker;
         result = cmaker.init(cmdLineArgs);
-        logOutput(cmaker);
         printOutput(cmaker);
         if (result != 0) {
-            LOG_F(ERROR, "Initialization failed with %d\n", result);
             printf("Initialization failed with %d\n", result);
             break;
         }
 
-        // Run the original command. Stop logging to avoid issues with fork.
-        loguru::shutdown();
+        // Run the original command.
         result = cmaker.run();
+        printOutput(cmaker);
         // If we are here we are in the child. Continue logging.
-        initlog(argc, argv);
-        logOutput(cmaker);
         if (result != 0) {
-            LOG_F(ERROR, "Run failed with %d\n", result);
+            printf("Run failed with %d\n", result);
             break;
         }
 
         result = cmaker.patch();
-        logOutput(cmaker);
+        printOutput(cmaker);
         break;
+    }
+
+    if (cmdLineArgs.args.size() > 1 && ga::pathExists(cmdLineArgs.args[1]) &&
+        ga::getFilename(cmdLineArgs.args[0]).find("cmake") != std::string::npos) {
+        std::string sEP = serialize(cmaker.getExecutionPlan());
+        if (!sEP.empty()) {
+            ga::writeFile("/tmp/xcmake.executionplan", sEP);
+        }
     }
 
     return result;
 }
-
-#endif

@@ -13,6 +13,8 @@ const char *asString(PatchResult value) {
         return "Changed";
     case PatchResult::Unchanged:
         return "Unchanged";
+    case PatchResult::AlreadyPatched:
+        return "AlreadyPatched";
     case PatchResult::DifferentSDK:
         return "DifferentSDK";
     case PatchResult::Error:
@@ -218,14 +220,13 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
 
     // will contain the relative path from the directory of the filePath to the sdk folder
     std::string virtualFolderPrefix;
-    std::string dir = ga::getParent(context.cbpFilePath);
-    if (!ga::getRelativePath(dir, context.sdkDir, virtualFolderPrefix)) {
-        LOG_F(ERROR, "cannot get relative path: %s => %s", dir.c_str(), context.sdkDir.c_str());
+    if (!ga::getRelativePath(context.projectDir, context.sdkDir, virtualFolderPrefix)) {
+        LOG_F(ERROR, "cannot get relative path: %s => %s", context.projectDir.c_str(), context.sdkDir.c_str());
         return patchResult;
     }
 
     cleanPathSeparators(virtualFolderPrefix, '\\');
-    context.virtualFolderPrefix = "..\\" + virtualFolderPrefix;
+    context.virtualFolderPrefix = virtualFolderPrefix;
 
     bool hasNotes = false;
     bool hasNewNote = false;
@@ -272,6 +273,15 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
             // In the Project section there will be multiple Option children.
             if (readNote(curr, context)) {
                 hasNotes = true;
+                // If the file was already patched, we will exit early
+                if (hasNotes) {
+                    if (context.oldVirtualFolderPrefix == context.virtualFolderPrefix) {
+                        patchResult = PatchResult::AlreadyPatched;
+                    } else {
+                        patchResult = PatchResult::DifferentSDK;
+                    }
+                    break;
+                }
             } else {
                 if (!hasNotes) {
                     createNote(context, parentElem);
@@ -283,15 +293,6 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
         }
 
         enqueueWithSiblings(curr->FirstChildElement(), curr, q);
-
-        if (hasNewNote) {
-            if (context.oldVirtualFolderPrefix == context.virtualFolderPrefix) {
-                patchResult = PatchResult::Unchanged;
-            } else {
-                patchResult = PatchResult::DifferentSDK;
-            }
-            break;
-        }
 
         /// @todo we should actually store the old values in the note instead of just checking if the note exists.
         if (hasNewNote && name == "Compiler") {
@@ -316,7 +317,7 @@ PatchResult patchCBP(CbpPatchContext &context, std::string *outModifiedXml) {
 
     if (original != modified) {
         if (outModifiedXml != nullptr) {
-            *outModifiedXml = modified;
+            *outModifiedXml = std::move(modified);
         }
         patchResult = PatchResult::Changed;
     } else {

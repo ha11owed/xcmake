@@ -194,6 +194,7 @@ struct CMaker::Impl {
         for (const std::string &filePath : cbpFilePaths) {
             CbpPatchContext context;
             context.cbpFilePath = filePath;
+            context.projectDir = executionPlan.projectDir;
             context.buildDir = executionPlan.buildDir;
             context.sdkDir = executionPlan.sdkDir;
             context.extraAddDirectory = executionPlan.extraAddDirectory;
@@ -205,20 +206,20 @@ struct CMaker::Impl {
                 continue;
             }
 
-            PatchResult patchResult = patchCBP(context);
+            std::string modified;
+            PatchResult patchResult = patchCBP(context, &modified);
 
             LOG_F(INFO, "patchCBPs filePath: %s PatchResult: %s", filePath.c_str(), asString(patchResult));
             executionPlan.output.push_back(filePath + " PatchResult: " + asString(patchResult));
 
             switch (patchResult) {
             case PatchResult::Changed: {
-                std::string outFile = filePath + ".tmp";
                 std::string bakFile = filePath + ".bak";
-                context.inOutXml.SaveFile(outFile.c_str());
                 if (!ga::pathExists(bakFile)) {
                     std::rename(filePath.c_str(), bakFile.c_str());
                 }
-                std::rename(outFile.c_str(), filePath.c_str());
+                bool ok = ga::writeFile(filePath, modified);
+                LOG_F(INFO, "writeFile %s (ok=%d)", filePath.c_str(), ok);
             } break;
             case PatchResult::Unchanged:
             case PatchResult::DifferentSDK:
@@ -296,7 +297,7 @@ struct CMaker::Impl {
                 executionPlan.cbpSearchPaths.push_back(executionPlan.buildDir);
                 executionPlan.output.push_back("All *.cbp in " + executionPlan.buildDir + " will use " +
                                                executionPlan.sdkDir);
-            } else if (executionPlan.cmdLineArgs.args[0].find("cmake") != std::string::npos) {
+            } else if (ga::getFilename(executionPlan.cmdLineArgs.args[0]).find("cmake") != std::string::npos) {
                 executionPlan.output.push_back("Running xcmake...");
             }
 

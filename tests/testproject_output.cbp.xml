@@ -3,34 +3,34 @@
     <FileVersion major="1" minor="6"/>
     <Project>
         <Option show_notes="0">
-            <notes><![CDATA[/home/testuser/sdks/v42
-..\..\sdks\v42]]></notes>
+            <notes><![CDATA[/tmp/xcmake/test/sdks/v42
+..\sdks\v42]]></notes>
         </Option>
         <Option title="testproj"/>
         <Option makefile_is_custom="1"/>
         <Option compiler="gcc"/>
-        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\..\sdks\v42\usr\include\someotherlib\"/>
+        <Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\ok\;CMake Files\..\sdks\v42\usr\include\someotherlib\"/>
         <Build>
             <Target title="all">
-                <Option working_dir="/home/testuser/build-testproj-Desktop-Debug"/>
+                <Option working_dir="/tmp/xcmake/test/build"/>
                 <Option type="4"/>
                 <Compiler>
                     <Add option="-gcc2"/>
                     <Add option="-gcc1"/>
-                    <Add directory="/home/testuser/sdks/v42/usr/include/somelib/"/>
+                    <Add directory="/tmp/xcmake/test/sdks/v42/usr/include/somelib"/>
                     <Add directory="/extra1"/>
                     <Add directory="/extra2"/>
                 </Compiler>
                 <MakeCommands>
-                    <Build command="/usr/bin/make -j8 -f &quot;/home/testuser/build-testproj-Desktop-Debug/Makefile&quot;  VERBOSE=1 all"/>
-                    <CompileFile command="/usr/bin/make -j8 -f &quot;/home/testuser/build-testproj-Desktop-Debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-                    <Clean command="/usr/bin/make -j8 -f &quot;/home/testuser/build-testproj-Desktop-Debug/Makefile&quot;  VERBOSE=1 clean"/>
-                    <DistClean command="/usr/bin/make -j8 -f &quot;/home/testuser/build-testproj-Desktop-Debug/Makefile&quot;  VERBOSE=1 clean"/>
+                    <Build command="/usr/bin/make -j8 -f &quot;/tmp/xcmake/test/build/Makefile&quot;  VERBOSE=1 all"/>
+                    <CompileFile command="/usr/bin/make -j8 -f &quot;/tmp/xcmake/test/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+                    <Clean command="/usr/bin/make -j8 -f &quot;/tmp/xcmake/test/build/Makefile&quot;  VERBOSE=1 clean"/>
+                    <DistClean command="/usr/bin/make -j8 -f &quot;/tmp/xcmake/test/build/Makefile&quot;  VERBOSE=1 clean"/>
                 </MakeCommands>
             </Target>
         </Build>
-        <Unit filename="/home/testuser/testproj/CMakeLists.txt">
-            <Option virtualFolder="CMake Files\;CMake Files\..\..\sdks\v42\usr\include\lib2\"/>
+        <Unit filename="/tmp/xcmake/test/testproj/CMakeLists.txt">
+            <Option virtualFolder="CMake Files\;CMake Files\..\sdks\v42\usr\include\lib2\"/>
         </Unit>
     </Project>
 </CodeBlocks_project_file>

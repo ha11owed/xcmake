@@ -4,12 +4,12 @@
         "xcmake": [ "${sdkPath}usr/bin/cmaker", "${sdkPath}usr/bin/cmake" ],
         "xbash" : [ "${sdkPath}usr/bin/basher", "${sdkPath}usr/bin/bash"  ]
     },
-    "gccClangFixes": [ "gcc_clang" ],
-    "extraAddDirectory": [ "/usr/extra/include" ],
+    "gccClangFixes": [ "-gcc1", "-gcc2" ],
+    "extraAddDirectory": [ "/extra1", "/extra2" ],
     "projects": [
         {
             "path": "/tmp/xcmake/test/proj42",
-            "sdkPath": "/home/alin/sdks42"
+            "sdkPath": "/tmp/xcmake/test/sdks/v42"
         },
         {
             "path": "/tmp/xcmake/test/proj43",

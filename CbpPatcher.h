@@ -13,6 +13,7 @@ struct CbpPatchContext {
     tinyxml2::XMLDocument inOutXml;
     std::string cbpFilePath;
 
+    std::string projectDir;
     std::string buildDir;
     std::string sdkDir;
     std::vector<std::string> extraAddDirectory;
@@ -23,7 +24,7 @@ struct CbpPatchContext {
     std::string oldVirtualFolderPrefix;
 };
 
-enum class PatchResult { Changed, Unchanged, DifferentSDK, Error };
+enum class PatchResult { Changed, Unchanged, AlreadyPatched, DifferentSDK, Error };
 
 const char *asString(PatchResult value);
 

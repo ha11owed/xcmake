@@ -12,6 +12,10 @@ class CMaker {
     CMaker();
     ~CMaker();
 
+    /// @brief set the default configuration to use.
+    /// If no configuration file exists this configuration will be written in the home directory.
+    void setDefaultConfig(const JConfig &config);
+
     /// @brief get the current execution plan
     const ExecutionPlan *getExecutionPlan() const;
 
@@ -23,6 +27,9 @@ class CMaker {
 
     /// @brief post run
     int patch();
+
+  public:
+    static const std::string CONFIG_FILENAME;
 
   private:
     struct Impl;

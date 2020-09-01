@@ -43,4 +43,4 @@ if(CMAKE_DL_LIBS)
     target_link_libraries(${XCMAKELIB} ${CMAKE_DL_LIBS})
 endif()
 
-file(COPY "tests/data/testproject_input.cbp" "tests/data/testproject_output.cbp.xml" "tests/data/cmaker.json" DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY "tests/data/testproject_input.cbp" "tests/data/testproject_output.cbp.xml" "tests/data/xcmake.json" DESTINATION ${CMAKE_BINARY_DIR})

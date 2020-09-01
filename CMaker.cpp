@@ -30,9 +30,9 @@ std::vector<std::string> getConfigFilePaths(const ExecutionPlan &executionPlan) 
     std::set<std::string> configFilePathSet;
 
     std::vector<std::pair<std::string, int>> searches;
+    searches.emplace_back(std::make_pair(executionPlan.projectDir, 1));
+    searches.emplace_back(std::make_pair(executionPlan.buildDir, 1));
     searches.emplace_back(std::make_pair(executionPlan.cmdLineArgs.home, 1));
-    searches.emplace_back(std::make_pair(executionPlan.projectDir, 3));
-    searches.emplace_back(std::make_pair(executionPlan.buildDir, 3));
 
     for (const auto &kv : searches) {
         std::string searchDir = kv.first;
@@ -41,7 +41,7 @@ std::vector<std::string> getConfigFilePaths(const ExecutionPlan &executionPlan) 
         }
 
         for (int i = 0; i < kv.second; i++) {
-            std::string filePath = ga::combine(searchDir, "cmaker.json");
+            std::string filePath = ga::combine(searchDir, CMaker::CONFIG_FILENAME);
 
             auto it = configFilePathSet.find(filePath);
             if (it == configFilePathSet.end()) {
@@ -96,9 +96,12 @@ inline bool canPatchCBP(const CmdLineArgs &cmdLineArgs, std::string &outProjectD
         executionPlan.log.push_back(ss.str());                                                                         \
     } while (false)
 
+const std::string CMaker::CONFIG_FILENAME = "xcmake.json";
+
 struct CMaker::Impl {
     CmdLineArgs cmdLineArgs;
     ExecutionPlan executionPlan;
+    JConfig defaultJConfiguration;
 
     /// @brief gather the parameters for patching the .cbp files to use a SDK.
     /// @return true if the CBPs should be patched and the parameters have been gathered.
@@ -110,6 +113,14 @@ struct CMaker::Impl {
         std::vector<std::string> configFilePaths = getConfigFilePaths(executionPlan);
         for (const std::string &configFilePath : configFilePaths) {
             LOG_F("configFilePath: " << configFilePath);
+        }
+
+        if (configFilePaths.empty() && defaultJConfiguration != JConfig()) {
+            std::string defaultConfigFilePath = ga::combine(executionPlan.cmdLineArgs.home, CMaker::CONFIG_FILENAME);
+            ga::writeFile(defaultConfigFilePath, serialize(defaultJConfiguration));
+            configFilePaths.push_back(defaultConfigFilePath);
+
+            LOG_F("writing default configuration to: " << defaultConfigFilePath);
         }
 
         JConfig config;
@@ -148,6 +159,7 @@ struct CMaker::Impl {
             ga::writeFile(selectedConfigFilePath, jStr);
         }
 
+        executionPlan.configFilePath = selectedConfigFilePath;
         return !outProject.sdkPath.empty();
     }
 
@@ -204,6 +216,7 @@ struct CMaker::Impl {
 
         this->cmdLineArgs = cmdLineArgs;
         executionPlan = ExecutionPlan();
+        executionPlan.cmdLineArgs = cmdLineArgs;
 
         bool patchCbp = canPatchCBP(cmdLineArgs, executionPlan.projectDir, executionPlan.buildDir);
         JProject project;
@@ -232,7 +245,6 @@ struct CMaker::Impl {
             const std::vector<std::string> &replCmd = replIt->second;
 
             executionPlan.exePath = replCmd[0];
-            executionPlan.cmdLineArgs = cmdLineArgs;
             std::vector<std::string> &args = executionPlan.cmdLineArgs.args;
             args = cmdLineArgs.args;
             for (size_t i = 0; (i + 1) < replCmd.size() && i < args.size(); i++) {
@@ -351,6 +363,12 @@ CMaker::CMaker()
     : _impl(std::make_shared<Impl>()) {}
 
 CMaker::~CMaker() {}
+
+void CMaker::setDefaultConfig(const JConfig &config) {
+    if (_impl) {
+        _impl->defaultJConfiguration = config;
+    }
+}
 
 const ExecutionPlan *CMaker::getExecutionPlan() const {
     const ExecutionPlan *r = nullptr;

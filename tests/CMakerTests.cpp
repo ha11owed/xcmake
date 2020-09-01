@@ -6,7 +6,7 @@
 
 namespace gatools {
 
-static std::string g_cmakerJson;
+static std::string g_xcmakeJson;
 static std::string g_inputCbp;
 static std::string g_expectedCbp;
 
@@ -26,8 +26,8 @@ class CMakerTests : public ::testing::Test {
 };
 
 void CMakerTests::SetUp() {
-    if (g_cmakerJson.empty()) {
-        ga::readFile("cmaker.json", g_cmakerJson);
+    if (g_xcmakeJson.empty()) {
+        ga::readFile(CMaker::CONFIG_FILENAME, g_xcmakeJson);
     }
     if (g_inputCbp.empty()) {
         ga::readFile("testproject_input.cbp", g_inputCbp);
@@ -46,9 +46,9 @@ void CMakerTests::createTestDir() {
     mkdir("/tmp/xcmake/", S_IRWXU);
     mkdir(_tmpDir.c_str(), S_IRWXU);
 
-    std::string cmakerJsonPath = ga::combine(_tmpDir, "cmaker.json");
+    std::string cmakerJsonPath = ga::combine(_tmpDir, CMaker::CONFIG_FILENAME);
     remove(cmakerJsonPath.c_str());
-    ga::writeFile(cmakerJsonPath, g_cmakerJson);
+    ga::writeFile(cmakerJsonPath, g_xcmakeJson);
 
     mkdir(_projectDir.c_str(), S_IRWXU);
     mkdir(_buildDir.c_str(), S_IRWXU);
@@ -143,8 +143,6 @@ TEST_F(CMakerTests, CMAKE_BASH) {
 TEST_F(CMakerTests, CMAKE_CP_TO_BUILD) {
     createTestDir();
 
-    std::string sdkDir = ga::combine(_tmpDir, "sdks/v42");
-
     CmdLineArgs cmdLineArgs;
     cmdLineArgs.args = {"cmakeCPtoBuild", _projectDir, "'-GCodeBlocks - Unix Makefiles'"};
     cmdLineArgs.pwd = _buildDir;
@@ -161,10 +159,44 @@ TEST_F(CMakerTests, CMAKE_CP_TO_BUILD) {
     ASSERT_EQ(actualCbp, g_expectedCbp);
 }
 
+TEST_F(CMakerTests, WriteDefaultConfig) {
+    createTestDir();
+
+    std::string cmakeConfigPath = ga::combine(_tmpDir, CMaker::CONFIG_FILENAME);
+    remove(cmakeConfigPath.c_str());
+    ASSERT_FALSE(ga::pathExists(cmakeConfigPath));
+
+    // No default cofiguration exists. The init will fail
+    CmdLineArgs cmdLineArgs;
+    cmdLineArgs.args = {"xbash"};
+    cmdLineArgs.pwd = _buildDir;
+    cmdLineArgs.home = _tmpDir;
+    int r = cmaker.init(cmdLineArgs);
+    ASSERT_EQ(-1, r);
+
+    ASSERT_FALSE(ga::pathExists(cmakeConfigPath));
+
+    // The default configuration is used and written to the home directory.
+    JConfig defaultConfig = deserialize(g_xcmakeJson);
+    cmaker.setDefaultConfig(defaultConfig);
+
+    r = cmaker.init(cmdLineArgs);
+    ASSERT_EQ(0, r);
+
+    ASSERT_TRUE(ga::pathExists(cmakeConfigPath));
+    std::string actualConfigStr;
+    ga::readFile(cmakeConfigPath, actualConfigStr);
+    JConfig actualConfig = deserialize(actualConfigStr);
+
+    ASSERT_EQ(actualConfig, defaultConfig);
+}
+
 TEST_F(CMakerTests, ECHO) {
+    createTestDir();
+
     CmdLineArgs cmdLineArgs;
     cmdLineArgs.args = {"xecho", "test"};
-    cmdLineArgs.pwd = "/home";
+    cmdLineArgs.pwd = _tmpDir;
     cmdLineArgs.home = cmdLineArgs.pwd;
     int r = cmaker.init(cmdLineArgs);
     ASSERT_EQ(0, r);
